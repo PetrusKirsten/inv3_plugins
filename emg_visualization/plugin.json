@@ -1,0 +1,5 @@
+{
+    "name": "EMG Visualization",
+    "description": "Enable quasi-realtime EMG monitoring of a target muscle",
+    "enable-startup": false
+}
