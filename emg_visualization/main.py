@@ -28,7 +28,7 @@ class Plotter:
                 y2 = data['amplitude [mV] - filtered']
                 y3 = data['trigger']
 
-                # EMG subplot config
+                # TODO: try EMG subplot config
                 self.ax1.cla()
                 self.ax1.set_ylim([-0.25, 0.25])
                 self.ax1.plot(
@@ -42,7 +42,7 @@ class Plotter:
                 self.ax1.grid(axis='x', color='gray', linewidth=0.5)
                 self.ax1.legend(loc='lower left')
 
-                # Trigger subplot config
+                # TODO: try trigger subplot config
                 self.ax2.cla()
                 self.ax2.set_ylim([-0.05, 1.05])
                 self.ax2.plot(
@@ -59,11 +59,11 @@ class Plotter:
 
 
 class EmgThread(threading.Thread):
-    def __init__(self, port: str):
+    def __init__(self, port: str, winSize=2000):
         threading.Thread.__init__(self)
         self.tmsFlag = False
         self.sampFreq = 256 * 6
-        self.winSize = 2000
+        self.winSize = winSize
         self.b, self.a = signal.butter(3, 0.03)
         self.calValues = 0
         self.initFilter = signal.lfilter_zi(self.b, self.a)
@@ -124,6 +124,7 @@ class EmgThread(threading.Thread):
         offsetMean = np.mean(self.rawValues)
 
         while True:
+            # TODO: reading values
             if self.serialPort.inWaiting() > 0:
                 line = self.serialPort.readline()
                 if line:
