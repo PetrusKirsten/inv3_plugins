@@ -93,7 +93,7 @@ class Plotter:
         self.emgPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
         self.emgPlot.getAxis('left').setTextPen('w')
         self.emgPlot.getAxis('bottom').setTextPen('w')
-        self.emgPlot.setYRange(-0.1, 0.1)
+        self.emgPlot.setYRange(-0.001, 0.001)
 
         self.win.nextRow()
 
@@ -105,6 +105,8 @@ class Plotter:
         self.triggerPlot.getAxis('left').setTextPen('w')
         self.triggerPlot.getAxis('bottom').setTextPen('w')
         self.triggerPlot.setYRange(0, 1)
+
+        # TODO: add a third plot to show the last emg signal trigger detected
 
         if self.rawSignal:
             self.rawPen = pg.mkPen(color='gray', width=0.15, alpha=0.35)
