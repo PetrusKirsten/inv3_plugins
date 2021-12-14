@@ -9,8 +9,8 @@ import pandas as pd
 import keyboard as kb
 import pyqtgraph as pg
 from scipy import signal
-from pandas import Series as sr
 import matplotlib.pyplot as plt
+from pandas import Series as sr
 from pyqtgraph.Qt import QtGui, QtCore
 from matplotlib.animation import FuncAnimation
 
