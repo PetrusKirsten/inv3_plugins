@@ -41,6 +41,9 @@ class Plotter:
                 )
                 self.ax1.grid(axis='x', color='gray', linewidth=0.5)
                 self.ax1.legend(loc='lower left')
+                self.ax1.set_title('Electromyography')
+                self.ax1.set_xlabel('Time [s]')
+                self.ax1.set_ylabel('Amplitude Signal [mV]')
 
                 # TODO: try trigger subplot config
                 self.ax2.cla()
@@ -49,12 +52,16 @@ class Plotter:
                     x[-self.winSize:-1], y3[-self.winSize:-1],
                     linewidth=5, alpha=1, color='aquamarine'
                 )
-
+                self.ax2.grid(axis='x', color='gray', linewidth=0.5)
+                self.ax2.set_title('Trigger Signal')
+                self.ax2.set_xlabel('Time [s]')
+                self.ax2.set_ylabel('Amplitude')
             except pd.errors.EmptyDataError:
                 pass
 
         ani = FuncAnimation(self.fig, animate, interval=0.001)
         plt.tight_layout()
+        plt.subplots_adjust(left=0.064, right=0.97, bottom=0.114, top=0.912, hspace=0.920)
         plt.show()
 
 
@@ -150,7 +157,6 @@ class EmgThread(threading.Thread):
 
                         EmgThread.trigger(self)
 
-                        # Add the counting of read signals
                         self.time = np.append(self.time, self.time[-1] + (self.sampFreq ** (-1)))
 
                         with open('data_all.csv', 'a') as self.csv_file:
