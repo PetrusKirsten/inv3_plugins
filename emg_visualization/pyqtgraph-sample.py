@@ -1,54 +1,40 @@
-# -*- coding: utf-8 -*-
-from pyqtgraph.Qt import QtGui, QtCore
-import numpy as np
-from numpy import arange, sin, cos, pi
+import time
+import random
 import pyqtgraph as pg
-import sys
+from collections import deque
+from pyqtgraph.Qt import QtGui, QtCore
 
-class Plot2D():
-    def __init__(self):
-        self.traces = dict()
 
-        #QtGui.QApplication.setGraphicsSystem('raster')
+class Graph:
+    def __init__(self, ):
+        self.dat = deque()
+        self.maxLen = 2000  # max number of data points to show on graph
         self.app = QtGui.QApplication([])
-        #mw = QtGui.QMainWindow()
-        #mw.resize(800,800)
+        self.win = pg.GraphicsWindow()
 
-        self.win = pg.GraphicsWindow(title="Basic plotting examples")
-        self.win.resize(1000,600)
-        self.win.setWindowTitle('pyqtgraph example: Plotting')
+        self.p1 = self.win.addPlot(colspan=2)
+        self.win.nextRow()
+        self.p2 = self.win.addPlot(colspan=2)
+        self.win.nextRow()
 
-        # Enable antialiasing for prettier plots
-        pg.setConfigOptions(antialias=True)
+        self.curve1 = self.p1.plot()
+        self.curve2 = self.p2.plot()
 
-        self.canvas = self.win.addPlot(title="Pytelemetry")
+        graphUpdateSpeedMs = 0.001
+        timer = QtCore.QTimer()  # to create a thread that calls a function at intervals
+        timer.timeout.connect(self.update)  # the update function keeps getting called at intervals
+        timer.start(graphUpdateSpeedMs)
+        QtGui.QApplication.instance().exec_()
 
-    def start(self):
-        if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-            QtGui.QApplication.instance().exec_()
+    def update(self):
+        if len(self.dat) > self.maxLen:
+            self.dat.popleft()  # remove oldest
+        self.dat.append(random.randint(0, 100))
 
-    def trace(self,name,dataset_x,dataset_y):
-        if name in self.traces:
-            self.traces[name].setData(dataset_x,dataset_y)
-        else:
-            self.traces[name] = self.canvas.plot(pen='y')
+        self.curve1.setData(self.dat)
+        self.curve2.setData(self.dat)
+        self.app.processEvents()
 
-## Start Qt event loop unless running in interactive mode or using pyside.
+
 if __name__ == '__main__':
-    p = Plot2D()
-    i = 0
-
-    def update():
-        global p, i
-        t = np.arange(0,3.0,0.01)
-        s = sin(2 * pi * t + i)
-        c = cos(2 * pi * t + i)
-        p.trace("sin",t,s)
-        p.trace("cos",t,c)
-        i += 0.1
-
-    timer = QtCore.QTimer()
-    timer.timeout.connect(update)
-    timer.start(50)
-
-    p.start()
+    g = Graph()

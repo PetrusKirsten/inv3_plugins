@@ -7,12 +7,78 @@ import matplotlib
 import numpy as np
 import pandas as pd
 import keyboard as kb
+import pyqtgraph as pg
+from PyQt5.QtGui import QIcon
 from scipy import signal
+from pandas import Series as s
 import matplotlib.pyplot as plt
+from pyqtgraph.Qt import QtGui, QtCore
 from matplotlib.animation import FuncAnimation
 
 
-class Plotter:
+class QtGraph:
+    def __init__(self, winSize=5000, speed=1/256, rawSignal=False):
+        self.app = QtGui.QApplication([])
+        self.win = pg.GraphicsWindow()
+        self.win.resize(1200, 400)
+        self.win.setWindowIcon(QtGui.QIcon('linhas-ecg.png'))
+        self.win.setWindowTitle('EMG')
+        self.win.setBackground((18, 18, 18))
+
+        self.winSize = winSize
+        self.speed = speed
+        self.rawSignal = rawSignal
+
+        self.emgPlot = self.win.addPlot(colspan=2, title='Electromyography')
+        self.emgPlot.setLabel(axis='left', text='Amplitude Signal [mV]')
+        self.emgPlot.setLabel(axis='bottom', text='Time [ms]')
+        self.emgPlot.showGrid(x=True, y=True, alpha=0.15)
+        self.emgPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
+        self.emgPlot.getAxis('left').setTextPen('w')
+        self.emgPlot.getAxis('bottom').setTextPen('w')
+        self.emgPlot.setYRange(-0.1, 0.1)
+
+        self.win.nextRow()
+
+        self.triggerPlot = self.win.addPlot(colspan=2, title='Trigger Signal')
+        self.triggerPlot.setLabel(axis='left', text='Amplitude')
+        self.triggerPlot.setLabel(axis='bottom', text='Time [ms]')
+        self.triggerPlot.showGrid(x=True, y=True, alpha=0.15)
+        self.triggerPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
+        self.triggerPlot.getAxis('left').setTextPen('w')
+        self.triggerPlot.getAxis('bottom').setTextPen('w')
+        self.triggerPlot.setYRange(0, 1)
+
+        self.emgPen = pg.mkPen(color=(255, 127, 80), width=1)
+        self.emgCurve = self.emgPlot.plot(pen=self.emgPen)
+        self.triggerPen = pg.mkPen(color=(100, 149, 237), width=5)
+        self.triggerCurve = self.triggerPlot.plot(pen=self.triggerPen)
+
+        if self.rawSignal:
+            self.rawCurve = self.emgPlot.plot(pen='gray')
+
+        timer = QtCore.QTimer()
+        timer.timeout.connect(self.update)
+        timer.start(speed)
+
+        QtGui.QApplication.instance().exec_()
+
+    def update(self):
+        data = pd.read_csv('data_show.csv')
+        time = s.tolist(data['time [ms]'])
+        rawSignal = s.tolist(data['amplitude [mV] - raw'])
+        filterSignal = s.tolist(data['amplitude [mV] - filtered'])
+        triggerSignal = s.tolist(data['trigger'])
+
+        self.emgCurve.setData(time[-self.winSize:], filterSignal[-self.winSize:])
+        self.triggerCurve.setData(time[-self.winSize:], triggerSignal[-self.winSize:])
+        if self.rawSignal:
+            self.rawCurve.setData(time[-self.winSize:], rawSignal[-self.winSize:])
+
+        self.app.processEvents()
+
+
+class MatPlotPlotter:
     def __init__(self, winSize=2000):
         matplotlib.use('TkAgg')
         plt.style.use('dark_background')
@@ -61,7 +127,12 @@ class Plotter:
 
         ani = FuncAnimation(self.fig, animate, interval=0.001)
         plt.tight_layout()
-        plt.subplots_adjust(left=0.064, right=0.97, bottom=0.114, top=0.912, hspace=0.920)
+        plt.subplots_adjust(
+            left=0.064,
+            right=0.97,
+            bottom=0.114,
+            top=0.912,
+            hspace=0.920)
         plt.show()
 
 
@@ -193,7 +264,9 @@ class EmgThread(threading.Thread):
 
 
 emg = EmgThread(port='COM3')
-plot = Plotter()
-
 emg.start()
-plot.run()
+
+# plotlib = MatPlotPlotter()
+# plotlib.run()
+
+qt = QtGraph()
