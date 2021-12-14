@@ -15,8 +15,8 @@ from pyqtgraph.Qt import QtGui, QtCore
 from matplotlib.animation import FuncAnimation
 
 
-class QtGraph:
-    def __init__(self, winSize=5000, speed=1/256, rawSignal=False):
+class Plotter:
+    def __init__(self, winSize=5000, speed=4, rawSignal=False):
         self.app = QtGui.QApplication([])
         self.win = pg.GraphicsWindow()
         self.win.resize(1200, 400)
@@ -268,4 +268,4 @@ emg.start()
 # plotlib = MatPlotPlotter()
 # plotlib.run()
 
-qt = QtGraph()
+qt = Plotter()
