@@ -8,9 +8,8 @@ import numpy as np
 import pandas as pd
 import keyboard as kb
 import pyqtgraph as pg
-from PyQt5.QtGui import QIcon
 from scipy import signal
-from pandas import Series as s
+from pandas import Series as sr
 import matplotlib.pyplot as plt
 from pyqtgraph.Qt import QtGui, QtCore
 from matplotlib.animation import FuncAnimation
@@ -65,10 +64,10 @@ class QtGraph:
 
     def update(self):
         data = pd.read_csv('data_show.csv')
-        time = s.tolist(data['time [ms]'])
-        rawSignal = s.tolist(data['amplitude [mV] - raw'])
-        filterSignal = s.tolist(data['amplitude [mV] - filtered'])
-        triggerSignal = s.tolist(data['trigger'])
+        time = sr.tolist(data['time [ms]'])
+        rawSignal = sr.tolist(data['amplitude [mV] - raw'])
+        filterSignal = sr.tolist(data['amplitude [mV] - filtered'])
+        triggerSignal = sr.tolist(data['trigger'])
 
         self.emgCurve.setData(time[-self.winSize:], filterSignal[-self.winSize:])
         self.triggerCurve.setData(time[-self.winSize:], triggerSignal[-self.winSize:])
