@@ -10,16 +10,16 @@ import keyboard as kb
 import pyqtgraph as pg
 from scipy import signal
 import matplotlib.pyplot as plt
-from pandas import Series as sr
+from pandas import Series as Sr
 from pyqtgraph.Qt import QtGui, QtCore
 from matplotlib.animation import FuncAnimation
 
 
 class MatPlotPlotter:
-    def __init__(self, winSize=2000):
+    def __init__(self, winsize=2000):
         matplotlib.use('TkAgg')
         plt.style.use('dark_background')
-        self.winSize = winSize
+        self.winSize = winsize
         self.fig, (self.ax1, self.ax2) = plt.subplots(2, figsize=(15, 5))
 
     def run(self):
@@ -74,7 +74,7 @@ class MatPlotPlotter:
 
 
 class Plotter:
-    def __init__(self, winSize=5000, speed=4, rawSignal=False):
+    def __init__(self, winsize=5000, speed=4, rawsignal=False):
         self.app = QtGui.QApplication([])
         self.win = pg.GraphicsWindow()
         self.win.resize(1200, 400)
@@ -82,9 +82,9 @@ class Plotter:
         self.win.setWindowTitle('EMG')
         self.win.setBackground((18, 18, 18))
 
-        self.winSize = winSize
+        self.winSize = winsize
         self.speed = speed
-        self.rawSignal = rawSignal
+        self.rawSignal = rawsignal
 
         self.emgPlot = self.win.addPlot(colspan=2, title='Electromyography')
         self.emgPlot.setLabel(axis='left', text='Amplitude Signal [mV]')
@@ -124,10 +124,10 @@ class Plotter:
 
     def update(self):
         data = pd.read_csv('data_show.csv')
-        time = sr.tolist(data['time [ms]'])
-        rawSignal = sr.tolist(data['amplitude [mV] - raw'])
-        filterSignal = sr.tolist(data['amplitude [mV] - filtered'])
-        triggerSignal = sr.tolist(data['trigger'])
+        time = Sr.tolist(data['time [ms]'])
+        rawSignal = Sr.tolist(data['amplitude [mV] - raw'])
+        filterSignal = Sr.tolist(data['amplitude [mV] - filtered'])
+        triggerSignal = Sr.tolist(data['trigger'])
 
         if self.rawSignal:
             self.rawCurve.setData(time[-self.winSize:], rawSignal[-self.winSize:])
@@ -138,11 +138,11 @@ class Plotter:
 
 
 class EmgThread(threading.Thread):
-    def __init__(self, port: str, winSize=2000):
+    def __init__(self, port: str, winsize=2000):
         threading.Thread.__init__(self)
         self.tmsFlag = False
         self.sampFreq = 256 * 6
-        self.winSize = winSize
+        self.winSize = winsize
         self.b, self.a = signal.butter(3, 0.03)
         self.calValues = 0
         self.initFilter = signal.lfilter_zi(self.b, self.a)
@@ -184,7 +184,7 @@ class EmgThread(threading.Thread):
             self.triggerValues = np.append(self.triggerValues, 0.)
             self.tmsFlag = False
 
-    def readSignal(self):
+    def readsignal(self):
         line = self.serialPort.readline()
         if line:
             try:
@@ -193,7 +193,7 @@ class EmgThread(threading.Thread):
                 self.value = 0
                 pass
 
-    def calibSignal(self):
+    def calibsignal(self):
         offsetMean = np.mean(self.rawValues)
         line = self.serialPort.readline()
         if line:
@@ -253,13 +253,13 @@ class EmgThread(threading.Thread):
     def run(self):
         while np.size(self.rawValues) < self.winSize:
             if self.serialPort.inWaiting() > 0:
-                EmgThread.readSignal(self)
+                EmgThread.readsignal(self)
             self.calValues = 0.125 * self.serialValues / 1023
             self.rawValues = np.append(self.rawValues, self.calValues)
 
         while True:
             if self.serialPort.inWaiting() > 0:
-                EmgThread.calibSignal(self)
+                EmgThread.calibsignal(self)
                 plotFilter = EmgThread.filtering(self)
                 EmgThread.trigger(self)
 
@@ -276,10 +276,10 @@ class EmgThread(threading.Thread):
                 self.triggerValues = np.delete(self.triggerValues, 0, 0)
 
 
-emg = EmgThread(port='COM3')
+emg = EmgThread(port='COM4')
 emg.start()
 
 # plotlib = MatPlotPlotter()
 # plotlib.run()
 
-qt = Plotter(rawSignal=True)
+qt = Plotter(rawsignal=True)
