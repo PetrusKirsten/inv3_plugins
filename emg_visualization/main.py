@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
 import csv
+import sys
+import glob
 import serial
 import threading
 import matplotlib
@@ -13,6 +15,34 @@ import matplotlib.pyplot as plt
 from pandas import Series as Sr
 from pyqtgraph.Qt import QtGui, QtCore
 from matplotlib.animation import FuncAnimation
+
+
+def serial_ports():
+    """ Lists serial port names
+        :raises EnvironmentError:
+            On unsupported or unknown platforms
+        :returns:
+            A list of the serial ports available on the system
+    """
+    if sys.platform.startswith('win'):
+        ports = ['COM%s' % (i + 1) for i in range(256)]
+    elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
+        # this excludes your current terminal "/dev/tty"
+        ports = glob.glob('/dev/tty[A-Za-z]*')
+    elif sys.platform.startswith('darwin'):
+        ports = glob.glob('/dev/tty.*')
+    else:
+        raise EnvironmentError('Unsupported platform')
+
+    result = []
+    for port in ports:
+        try:
+            s = serial.Serial(port)
+            s.close()
+            result.append(port)
+        except (OSError, serial.SerialException):
+            pass
+    return result
 
 
 class MatPlotPlotter:
@@ -31,7 +61,6 @@ class MatPlotPlotter:
                 y2 = data['amplitude [mV] - filtered']
                 y3 = data['trigger']
 
-                # TODO: try EMG subplot config
                 self.ax1.cla()
                 self.ax1.set_ylim([-0.25, 0.25])
                 self.ax1.plot(
@@ -48,7 +77,6 @@ class MatPlotPlotter:
                 self.ax1.set_xlabel('Time [s]')
                 self.ax1.set_ylabel('Amplitude Signal [mV]')
 
-                # TODO: try trigger subplot config
                 self.ax2.cla()
                 self.ax2.set_ylim([-0.05, 1.05])
                 self.ax2.plot(
@@ -74,17 +102,18 @@ class MatPlotPlotter:
 
 
 class Plotter:
-    def __init__(self, winsize=5000, speed=4, rawsignal=False):
+    def __init__(self, winSize=5000, speed=4, rawSignal=False, showTrigger=False):
         self.app = QtGui.QApplication([])
         self.win = pg.GraphicsWindow()
         self.win.resize(1200, 400)
-        self.win.setWindowIcon(QtGui.QIcon('linhas-ecg.png'))
+        self.win.setWindowIcon(QtGui.QIcon('emg-icon.png'))
         self.win.setWindowTitle('EMG')
         self.win.setBackground((18, 18, 18))
 
-        self.winSize = winsize
+        self.winSize = winSize
         self.speed = speed
-        self.rawSignal = rawsignal
+        self.rawSignal = rawSignal
+        self.showTrigger = showTrigger
 
         self.emgPlot = self.win.addPlot(colspan=2, title='Electromyography')
         self.emgPlot.setLabel(axis='left', text='Amplitude Signal [mV]')
@@ -93,28 +122,27 @@ class Plotter:
         self.emgPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
         self.emgPlot.getAxis('left').setTextPen('w')
         self.emgPlot.getAxis('bottom').setTextPen('w')
-        self.emgPlot.setYRange(-0.001, 0.001)
+        self.emgPlot.setYRange(-0.1, 0.1)
 
-        self.win.nextRow()
-
-        self.triggerPlot = self.win.addPlot(colspan=2, title='Trigger Signal')
-        self.triggerPlot.setLabel(axis='left', text='Amplitude')
-        self.triggerPlot.setLabel(axis='bottom', text='Time [ms]')
-        self.triggerPlot.showGrid(x=True, y=True, alpha=0.15)
-        self.triggerPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
-        self.triggerPlot.getAxis('left').setTextPen('w')
-        self.triggerPlot.getAxis('bottom').setTextPen('w')
-        self.triggerPlot.setYRange(0, 1)
-
-        # TODO: add a third plot to show the last emg signal trigger detected
+        if self.showTrigger:
+            self.win.nextRow()
+            self.triggerPlot = self.win.addPlot(colspan=2, title='Trigger Signal')
+            self.triggerPlot.setLabel(axis='left', text='Amplitude')
+            self.triggerPlot.setLabel(axis='bottom', text='Time [ms]')
+            self.triggerPlot.showGrid(x=True, y=True, alpha=0.15)
+            self.triggerPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
+            self.triggerPlot.getAxis('left').setTextPen('w')
+            self.triggerPlot.getAxis('bottom').setTextPen('w')
+            self.triggerPlot.setYRange(0, 1)
 
         if self.rawSignal:
             self.rawPen = pg.mkPen(color='gray', width=0.15, alpha=0.35)
             self.rawCurve = self.emgPlot.plot(pen=self.rawPen)
         self.emgPen = pg.mkPen(color=(255, 127, 80), width=1)
         self.emgCurve = self.emgPlot.plot(pen=self.emgPen)
-        self.triggerPen = pg.mkPen(color=(100, 149, 237), width=5)
-        self.triggerCurve = self.triggerPlot.plot(pen=self.triggerPen)
+        if self.showTrigger:
+            self.triggerPen = pg.mkPen(color=(100, 149, 237), width=5)
+            self.triggerCurve = self.triggerPlot.plot(pen=self.triggerPen)
 
         timer = QtCore.QTimer()
         timer.timeout.connect(self.update)
@@ -132,7 +160,8 @@ class Plotter:
         if self.rawSignal:
             self.rawCurve.setData(time[-self.winSize:], rawSignal[-self.winSize:])
         self.emgCurve.setData(time[-self.winSize:], filterSignal[-self.winSize:])
-        self.triggerCurve.setData(time[-self.winSize:], triggerSignal[-self.winSize:])
+        if self.showTrigger:
+            self.triggerCurve.setData(time[-self.winSize:], triggerSignal[-self.winSize:])
 
         self.app.processEvents()
 
@@ -180,6 +209,7 @@ class EmgThread(threading.Thread):
                 self.tmsFlag = True
                 self.serialPort.write(b'H')
                 self.triggerValues = np.append(self.triggerValues, 1.)
+
         else:
             self.triggerValues = np.append(self.triggerValues, 0.)
             self.tmsFlag = False
@@ -262,10 +292,10 @@ class EmgThread(threading.Thread):
                 EmgThread.calibsignal(self)
                 plotFilter = EmgThread.filtering(self)
                 EmgThread.trigger(self)
-
                 self.time = np.append(self.time, self.time[-1] + (self.sampFreq ** (-1)))
 
                 EmgThread.writer(self, filtered=plotFilter, truncate=False)
+
                 dataSize = os.path.getsize("data_show.csv")
                 if dataSize > 10000000:
                     EmgThread.truncate(self)
@@ -276,10 +306,11 @@ class EmgThread(threading.Thread):
                 self.triggerValues = np.delete(self.triggerValues, 0, 0)
 
 
-emg = EmgThread(port='COM4')
-emg.start()
+if __name__ == '__main__':
+    emg = EmgThread(port='COM4')
+    emg.start()
 
-# plotlib = MatPlotPlotter()
-# plotlib.run()
+    # plotlib = MatPlotPlotter()
+    # plotlib.run()
 
-qt = Plotter(rawsignal=True)
+    qt = Plotter(rawSignal=True, showTrigger=True)

@@ -3,6 +3,7 @@ import random
 import numpy as np
 from sys import exit
 import xlsxwriter as xlsx
+from datetime import datetime
 from matplotlib import pyplot as plt
 
 
@@ -18,7 +19,7 @@ def info(data):
 def ellipse_path(
         x_hotspot,
         y_hotspot,
-        z=139.056,
+        z_hotspot=139.056,
         e=0.85,
         size=40,
         distance=20,
@@ -69,24 +70,26 @@ def ellipse_path(
 
     data_array = [radius, distance, delta, counter]
 
-    z_marker_values = np.full_like(x_marker_values, z)
+    z_marker_values = np.full_like(x_marker_values, z_hotspot)
     zero_values = np.full_like(x_marker_values, 0.000)
     one_values = np.full_like(x_marker_values, 1.000)
     two_values = np.full_like(x_marker_values, 2.000)
 
-    export_array = np.transpose(np.array([
-        x_marker_values,
-        y_marker_values,
-        z_marker_values,
-        zero_values,
-        zero_values,
-        zero_values,
-        one_values,
-        one_values,
-        zero_values,
-        two_values]))
-
-    np.savetxt('elliptical_spiral.mks', export_array, fmt='%s')
+    export_array = np.transpose(np.array(
+        [x_marker_values,
+         y_marker_values,
+         z_marker_values,
+         zero_values,
+         zero_values,
+         zero_values,
+         one_values,
+         one_values,
+         zero_values,
+         two_values
+         ]
+    ))
+    file_name = datetime.now().strftime('%d%m%Y%H%M')
+    np.savetxt(f'stim-coord_{file_name}.mks', export_array, fmt='%s')
     return x_marker_values, y_marker_values, x_values, y_values, data_array
 
 
@@ -196,7 +199,6 @@ def circle_path(
         distance=20,
         delta=1.5,
         phi=0):
-
     x_values = np.array([x_hotspot])
     y_values = np.array([y_hotspot])
     x_marker_values = np.array([x_hotspot])
@@ -270,7 +272,6 @@ def circle_sim(
         distance=20,
         delta=1.5,
         phi=0):
-
     x_values = np.array([x_hotspot])
     y_values = np.array([y_hotspot])
     x_marker_values = np.array([x_hotspot])
@@ -388,7 +389,6 @@ def heatmap(
         shape='e',
         grid_size=1,
         h=30):
-
     if shape == 'c':
         x, y, x2, y2, x3, y3, _ = circle_sim(x_hotspot, y_hotspot)
     if shape == 'e':
