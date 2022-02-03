@@ -8,89 +8,93 @@ from matplotlib import pyplot as plt
 
 
 def info(data):
-    print(f'\n****************** INFO ******************\n'
-          f'Maximium stimulation radius: {data[0]:.2f} mm\n'
-          f'Distance between stimulated spots: {data[1]} mm\n'
-          f'Delta: {data[2]} mm/rad\n'
-          f'Number of stimulated spots: {data[3]}\n'
-          f'******************************************')
+    print(f'\nRobotic coil trajectory info:\n\n'
+          f'>> Maximium stimulation radius: {data[0]:.2f} mm\n'
+          f'>> Distance between stimulated spots: {data[1]} mm\n'
+          f'>> Delta: {data[2]} mm/rad\n'
+          f'>> Number of stimulated spots: {data[3]}\n')
 
 
 def ellipse_path(
-        x_hotspot,
-        y_hotspot,
+        x_hotspot: float,
+        y_hotspot: float,
         z_hotspot=139.056,
         e=0.85,
         size=40,
         distance=20,
         delta=1.25,
         phi=0):
-    x_values = np.array([x_hotspot])
-    y_values = np.array([y_hotspot])
-    x_marker_values = np.array([x_hotspot])
-    y_marker_values = np.array([y_hotspot])
+    if 0 <= e <= 1:
+        x_values = np.array([x_hotspot])
+        y_values = np.array([y_hotspot])
+        x_marker_values = np.array([x_hotspot])
+        y_marker_values = np.array([y_hotspot])
 
-    b = np.sqrt(1 - e ** 2)
-    delta_angle = (np.pi / 100)
-    delta_param = delta * delta_angle
-    param = 0
-    angle = 0
+        b = np.sqrt(1 - e ** 2)
+        delta_angle = (np.pi / 100)
+        delta_param = delta * delta_angle
+        param = 0
+        angle = 0
 
-    counter = 1
-    while True:
-        if counter == 1:
-            x2 = x_hotspot
-            y2 = y_hotspot
-        else:
-            x2 = x_marker_values[-1]
-            y2 = y_marker_values[-1]
-        x = param * np.cos(angle + phi) + x_hotspot
-        y = b * param * np.sin(angle + phi) + y_hotspot
-        x_values = np.append(x_values, x)
-        y_values = np.append(y_values, y)
+        counter = 1
+        while True:
+            if counter == 1:
+                x2 = x_hotspot
+                y2 = y_hotspot
+            else:
+                x2 = x_marker_values[-1]
+                y2 = y_marker_values[-1]
+            x = param * np.cos(angle + phi) + x_hotspot
+            y = b * param * np.sin(angle + phi) + y_hotspot
+            x_values = np.append(x_values, x)
+            y_values = np.append(y_values, y)
 
-        radius = np.sqrt((x - x_hotspot) ** 2 + (y - y_hotspot) ** 2)
+            radius = np.sqrt((x - x_hotspot) ** 2 + (y - y_hotspot) ** 2)
 
-        if angle < np.deg2rad(850):
-            if (distance / 3) < np.sqrt((y2 - y) ** 2 + (x2 - x) ** 2):
-                x_marker_values = np.append(x_marker_values, x)
-                y_marker_values = np.append(y_marker_values, y)
-                counter += 1
-        else:
-            if distance < np.sqrt((y2 - y) ** 2 + (x2 - x) ** 2):
-                x_marker_values = np.append(x_marker_values, x)
-                y_marker_values = np.append(y_marker_values, y)
-                counter += 1
+            if angle < np.deg2rad(850):
+                if (distance / 3) < np.sqrt((y2 - y) ** 2 + (x2 - x) ** 2):
+                    x_marker_values = np.append(x_marker_values, x)
+                    y_marker_values = np.append(y_marker_values, y)
+                    counter += 1
+            else:
+                if distance < np.sqrt((y2 - y) ** 2 + (x2 - x) ** 2):
+                    x_marker_values = np.append(x_marker_values, x)
+                    y_marker_values = np.append(y_marker_values, y)
+                    counter += 1
 
-        if radius >= size:
-            break
+            if radius >= size:
+                break
 
-        param += delta_param
-        angle += delta_angle
+            param += delta_param
+            angle += delta_angle
 
-    data_array = [radius, distance, delta, counter]
+        data_array = [radius, distance, delta, counter]
 
-    z_marker_values = np.full_like(x_marker_values, z_hotspot)
-    zero_values = np.full_like(x_marker_values, 0.000)
-    one_values = np.full_like(x_marker_values, 1.000)
-    two_values = np.full_like(x_marker_values, 2.000)
+        z_marker_values = np.full_like(x_marker_values, z_hotspot)
+        zero_values = np.full_like(x_marker_values, 0.000)
+        one_values = np.full_like(x_marker_values, 1.000)
+        two_values = np.full_like(x_marker_values, 2.000)
 
-    export_array = np.transpose(np.array(
-        [x_marker_values,
-         y_marker_values,
-         z_marker_values,
-         zero_values,
-         zero_values,
-         zero_values,
-         one_values,
-         one_values,
-         zero_values,
-         two_values
-         ]
-    ))
-    file_name = datetime.now().strftime('%d%m%Y%H%M')
-    np.savetxt(f'stim-coord_{file_name}.mks', export_array, fmt='%s')
-    return x_marker_values, y_marker_values, x_values, y_values, data_array
+        export_array = np.transpose(np.array(
+            [x_marker_values,
+             y_marker_values,
+             z_marker_values,
+             zero_values,
+             zero_values,
+             zero_values,
+             one_values,
+             one_values,
+             zero_values,
+             two_values
+             ]
+        ))
+        file_name = datetime.now().strftime('%d%m%Y%H%M')
+        np.savetxt(f'stim-coord_{file_name}.mks', export_array, fmt='%s')
+
+        return x_marker_values, y_marker_values, x_values, y_values, data_array
+
+    else:
+        print(f'Insert an ellipse eccentricity between 0 and 1.')
 
 
 def ellipse_sim(

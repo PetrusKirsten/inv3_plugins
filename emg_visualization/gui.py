@@ -1,9 +1,9 @@
 import wx
+import emg
 import spiralTMS
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 from serial.serialutil import SerialException
-from main import serial_ports, Plotter, EmgThread
 
 
 class Dialog(wx.Dialog):
@@ -13,17 +13,17 @@ class Dialog(wx.Dialog):
             title='Automated motor mapping',
             style=wx.DEFAULT_DIALOG_STYLE | wx.FRAME_FLOAT_ON_PARENT,
         )
-
+        self.buttons_traj = wx.BoxSizer(wx.VERTICAL)
         self.noPath_traj = wx.StaticText(self, -1)
+        self.path_traj = wx.StaticText(self, -1)
         self.x_ctrl = None
         self.y_ctrl = None
         self.z_ctrl = None
         self.ecc_ctrl = None
         self.radius_ctrl = None
         self.pointsdist_ctrl = None
-
         self.portIndex = None
-        self.ports = serial_ports()
+        self.ports = emg.serial_ports()
 
         self.initgui()
 
@@ -51,9 +51,9 @@ class Dialog(wx.Dialog):
     def onrun(self, evt):
         print('Run realtime EMG plot...')
         try:
-            emg = EmgThread(port=self.ports[self.portIndex])
-            emg.start()
-            Plotter(rawSignal=True, showTrigger=True)
+            emgPlot = emg.EmgThread(port=self.ports[self.portIndex])
+            emgPlot.start()
+            emg.Plotter(rawSignal=True, showTrigger=True)
         except SerialException:
             print('Unable to access this serial port')
         except TypeError:
@@ -67,34 +67,35 @@ class Dialog(wx.Dialog):
         plt.xlabel('X [mm]')
         plt.ylabel('Y [mm]')
         plt.title('Coordinate System')
-
-        x_marker, y_marker, x_path, y_path, data = spiralTMS.ellipse_path(
-            x_hotspot=float(self.x_ctrl.GetValue()),
-            y_hotspot=float(self.x_ctrl.GetValue()),
-            z_hotspot=float(self.x_ctrl.GetValue()),
-            e=float(self.ecc_ctrl.GetValue()),
-            size=float(self.radius_ctrl.GetValue()),
-            distance=float(self.pointsdist_ctrl.GetValue())
-        )
-        spiralTMS.info(data)
-        plt.plot(
-            x_path,
-            y_path,
-            color='k',
-            linewidth=0.5,
-            label='TMS coil path'
-        )
-        plt.scatter(
-            x_marker,
-            y_marker,
-            color='r',
-            label='TMS stimulation'
-        )
-        plt.legend()
-        plt.show()
-
         try:
+            x_marker, y_marker, x_path, y_path, data = spiralTMS.ellipse_path(
+                x_hotspot=float(self.x_ctrl.GetValue()),
+                y_hotspot=float(self.x_ctrl.GetValue()),
+                z_hotspot=float(self.x_ctrl.GetValue()),
+                e=float(self.ecc_ctrl.GetValue()),
+                size=float(self.radius_ctrl.GetValue()),
+                distance=float(self.pointsdist_ctrl.GetValue())
+            )
+            spiralTMS.info(data)
+            plt.plot(
+                x_path,
+                y_path,
+                color='k',
+                linewidth=0.5,
+                label='TMS coil path'
+            )
+            plt.scatter(
+                x_marker,
+                y_marker,
+                color='r',
+                label='TMS stimulation'
+            )
+            plt.legend()
+            plt.show()
             self.noPath_traj.Destroy()
+
+        except TypeError:
+            pass
         except RuntimeError:
             pass
 
@@ -106,7 +107,7 @@ class Dialog(wx.Dialog):
             0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10
         )
         combobox_plot.Add(
-            wx.ComboBox(self, -1, style=wx.CB_READONLY, choices=serial_ports()),
+            wx.ComboBox(self, -1, style=wx.CB_READONLY, choices=emg.serial_ports()),
             1, wx.EXPAND
         )
 
@@ -177,14 +178,12 @@ class Dialog(wx.Dialog):
              (pointsdist_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.pointsdist_ctrl, 0),)
         )
 
-        buttons_traj = wx.BoxSizer(wx.VERTICAL)
-
         self.noPath_traj.SetLabel('   No path generate yet.   ')
         self.noPath_traj.SetBackgroundColour('YELLOW')
-        buttons_traj.Add(
+        self.buttons_traj.Add(
             self.noPath_traj, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.BOTTOM, 10
         )
-        buttons_traj.Add(
+        self.buttons_traj.Add(
             wx.Button(self, 4, 'Generate trajectory', size=(150, 35)),
             0, wx.ALIGN_CENTER_HORIZONTAL,
         )
@@ -195,7 +194,7 @@ class Dialog(wx.Dialog):
             wx.ALL, 20
         )
         traj_sizer.Add(
-            buttons_traj, 0,
+            self.buttons_traj, 0,
             wx.ALIGN_CENTER_HORIZONTAL | wx.LEFT, 20
         )
 
@@ -217,8 +216,14 @@ class Dialog(wx.Dialog):
         self.Layout()
 
 
-if __name__ == '__main__':
-    app = wx.App()
-    dlg = Dialog(None)
-    dlg.Show()
+class MyApp(wx.App):
+    def OnInit(self):
+        self.dlg = Dialog(None)
+        self.SetTopWindow(self.dlg)
+        self.dlg.Show()
+        return True
+
+
+if __name__ == "__main__":
+    app = MyApp(0)
     app.MainLoop()
