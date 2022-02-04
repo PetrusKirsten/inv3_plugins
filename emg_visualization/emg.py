@@ -7,12 +7,13 @@ import serial
 import threading
 import matplotlib
 import numpy as np
-import pandas as pd
+import pandas
+# from pandas import read_csv
 import keyboard as kb
 import pyqtgraph as pg
 from scipy import signal
 import matplotlib.pyplot as plt
-from pandas import Series as Sr
+# from pandas import Series as Sr
 from pyqtgraph.Qt import QtGui, QtCore
 from matplotlib.animation import FuncAnimation
 
@@ -43,62 +44,6 @@ def serial_ports():
         except (OSError, serial.SerialException):
             pass
     return result
-
-
-class MatPlotPlotter:
-    def __init__(self, winsize=2000):
-        matplotlib.use('TkAgg')
-        plt.style.use('dark_background')
-        self.winSize = winsize
-        self.fig, (self.ax1, self.ax2) = plt.subplots(2, figsize=(15, 5))
-
-    def run(self):
-        def animate(i):
-            try:
-                data = pd.read_csv('data_show.csv')
-                x = data['time [ms]']
-                y1 = data['amplitude [mV] - raw']
-                y2 = data['amplitude [mV] - filtered']
-                y3 = data['trigger']
-
-                self.ax1.cla()
-                self.ax1.set_ylim([-0.25, 0.25])
-                self.ax1.plot(
-                    x[-self.winSize:-1], y1[-self.winSize:-1],
-                    linewidth=1, alpha=0.5, color='grey', label='EMG'
-                )
-                self.ax1.plot(
-                    x[-self.winSize:-1], y2[-self.winSize:-1],
-                    linewidth=2, alpha=1, color='coral', label='EMG filter'
-                )
-                self.ax1.grid(axis='x', color='gray', linewidth=0.5)
-                self.ax1.legend(loc='lower left')
-                self.ax1.set_title('Electromyography')
-                self.ax1.set_xlabel('Time [s]')
-                self.ax1.set_ylabel('Amplitude Signal [mV]')
-
-                self.ax2.cla()
-                self.ax2.set_ylim([-0.05, 1.05])
-                self.ax2.plot(
-                    x[-self.winSize:-1], y3[-self.winSize:-1],
-                    linewidth=5, alpha=1, color='aquamarine'
-                )
-                self.ax2.grid(axis='x', color='gray', linewidth=0.5)
-                self.ax2.set_title('Trigger Signal')
-                self.ax2.set_xlabel('Time [s]')
-                self.ax2.set_ylabel('Amplitude')
-            except pd.errors.EmptyDataError:
-                pass
-
-        ani = FuncAnimation(self.fig, animate, interval=0.001)
-        plt.tight_layout()
-        plt.subplots_adjust(
-            left=0.064,
-            right=0.97,
-            bottom=0.114,
-            top=0.912,
-            hspace=0.920)
-        plt.show()
 
 
 class Plotter:
@@ -151,7 +96,8 @@ class Plotter:
         QtGui.QApplication.instance().exec_()
 
     def update(self):
-        data = pd.read_csv('data_show.csv')
+        # TODO: alternativa para o pandas
+        data = read_csv('data_show.csv')
         time = Sr.tolist(data['time [ms]'])
         rawSignal = Sr.tolist(data['amplitude [mV] - raw'])
         filterSignal = Sr.tolist(data['amplitude [mV] - filtered'])
@@ -159,7 +105,9 @@ class Plotter:
 
         if self.rawSignal:
             self.rawCurve.setData(time[-self.winSize:], rawSignal[-self.winSize:])
+
         self.emgCurve.setData(time[-self.winSize:], filterSignal[-self.winSize:])
+
         if self.showTrigger:
             self.triggerCurve.setData(time[-self.winSize:], triggerSignal[-self.winSize:])
 
@@ -182,7 +130,6 @@ class EmgThread(threading.Thread):
         self.time = np.array([0])
         self.triggerValues = np.zeros(self.winSize)
         self.value = ()
-        # self.offsetMean = None
 
         self.serialPort = serial.Serial(
             port=port,

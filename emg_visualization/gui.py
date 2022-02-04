@@ -1,12 +1,15 @@
 import wx
-import emg
-import spiralTMS
+from . import emg
+# import emg
+from . import spiralTMS
+# import spiralTMS
 import matplotlib as mpl
+from pubsub import pub as Publisher
 from matplotlib import pyplot as plt
 from serial.serialutil import SerialException
 
 
-class Dialog(wx.Dialog):
+class Window(wx.Dialog):
     def __init__(self, parent):
         super().__init__(
             parent,
@@ -216,14 +219,8 @@ class Dialog(wx.Dialog):
         self.Layout()
 
 
-class MyApp(wx.App):
-    def OnInit(self):
-        self.dlg = Dialog(None)
-        self.SetTopWindow(self.dlg)
-        self.dlg.Show()
-        return True
-
-
 if __name__ == "__main__":
-    app = MyApp(0)
+    app = wx.App()
+    window = Window(None)
+    window.Show()
     app.MainLoop()
