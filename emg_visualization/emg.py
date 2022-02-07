@@ -5,17 +5,16 @@ import sys
 import glob
 import serial
 import threading
-import matplotlib
 import numpy as np
-import pandas
-# from pandas import read_csv
 import keyboard as kb
 import pyqtgraph as pg
+import matplotlib as mpl
 from scipy import signal
-import matplotlib.pyplot as plt
-# from pandas import Series as Sr
+from pandas import Series
+from pandas import read_csv
+from matplotlib import pyplot as plt
 from pyqtgraph.Qt import QtGui, QtCore
-from matplotlib.animation import FuncAnimation
+global staticTrigger
 
 
 def serial_ports():
@@ -34,7 +33,6 @@ def serial_ports():
         ports = glob.glob('/dev/tty.*')
     else:
         raise EnvironmentError('Unsupported platform')
-
     result = []
     for port in ports:
         try:
@@ -43,32 +41,85 @@ def serial_ports():
             result.append(port)
         except (OSError, serial.SerialException):
             pass
+
     return result
 
 
+def save_static(x, y, saveLocation):
+    from datetime import datetime
+
+    plt.style.use('dark_background')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Amplitude Signal [mV]')
+    plt.ylim(-0.01, 0.01)
+    plt.title(datetime.now().strftime('Triggered signal at %d-%m-%Y %H:%M:%S'))
+    plt.plot(
+        x,
+        y,
+        color='#48C9B0',
+        linewidth=2
+    )
+    plt.savefig(saveLocation + '_' + datetime.now().strftime("%d%m%Y%H%M%S") + '.png')
+    plt.close()
+
+
 class Plotter:
-    def __init__(self, winSize=5000, speed=4, rawSignal=False, showTrigger=False):
+    def __init__(self,
+                 savePlot,
+                 saveLocation,
+                 winSize=500,
+                 speed=4,
+                 rawSignal=False,
+                 showTrigger=False
+                 ):
+        global staticTrigger
+        staticTrigger = False
+        self.savePlot = savePlot
+        self.saveLocation = saveLocation
+        self.staticSize = 50
+        self.sampFreq = 256
+        self.staticSignal = []
+        self.showTrigger = showTrigger
+        self.rawSignal = rawSignal
+        self.winSize = winSize
+        self.speed = speed
+
+        # PyQtGraph config
         self.app = QtGui.QApplication([])
         self.win = pg.GraphicsWindow()
-        self.win.resize(1200, 400)
+        self.win.resize(1200, 600)
         self.win.setWindowIcon(QtGui.QIcon('emg-icon.png'))
         self.win.setWindowTitle('EMG')
         self.win.setBackground((18, 18, 18))
 
-        self.winSize = winSize
-        self.speed = speed
-        self.rawSignal = rawSignal
-        self.showTrigger = showTrigger
-
+        # Emg plot config
         self.emgPlot = self.win.addPlot(colspan=2, title='Electromyography')
         self.emgPlot.setLabel(axis='left', text='Amplitude Signal [mV]')
-        self.emgPlot.setLabel(axis='bottom', text='Time [ms]')
+        self.emgPlot.setLabel(axis='bottom', text='Time [s]')
         self.emgPlot.showGrid(x=True, y=True, alpha=0.15)
         self.emgPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
         self.emgPlot.getAxis('left').setTextPen('w')
         self.emgPlot.getAxis('bottom').setTextPen('w')
-        self.emgPlot.setYRange(-0.1, 0.1)
+        self.emgPlot.setYRange(-0.01, 0.01)
+        if self.rawSignal:
+            self.rawPen = pg.mkPen(color='white', width=0.5)
+            self.rawCurve = self.emgPlot.plot(pen=self.rawPen)
+        self.emgPen = pg.mkPen(color=(236, 112, 99), width=1)
+        self.emgCurve = self.emgPlot.plot(pen=self.emgPen)
 
+        # Emg static plot
+        self.win.nextRow()
+        self.staticPlot = self.win.addPlot(colspan=2, title='Last triggered EMG signal')
+        self.staticPlot.setLabel(axis='left', text='Amplitude Signal [mV]')
+        self.staticPlot.setLabel(axis='bottom', text='Time [s]')
+        self.staticPlot.showGrid(x=True, y=True, alpha=0.15)
+        self.staticPlot.getAxis('left').setTextPen('w')
+        self.staticPlot.getAxis('bottom').setTextPen('w')
+        self.staticPlot.setYRange(-0.01, 0.01)
+        self.staticPen = pg.mkPen(color=(72, 201, 176), width=2.5)
+        self.staticCurve = self.staticPlot.plot(pen=self.staticPen)
+
+        # Trigger plot config (if enabled)
         if self.showTrigger:
             self.win.nextRow()
             self.triggerPlot = self.win.addPlot(colspan=2, title='Trigger Signal')
@@ -79,35 +130,39 @@ class Plotter:
             self.triggerPlot.getAxis('left').setTextPen('w')
             self.triggerPlot.getAxis('bottom').setTextPen('w')
             self.triggerPlot.setYRange(0, 1)
-
-        if self.rawSignal:
-            self.rawPen = pg.mkPen(color='gray', width=0.15, alpha=0.35)
-            self.rawCurve = self.emgPlot.plot(pen=self.rawPen)
-        self.emgPen = pg.mkPen(color=(255, 127, 80), width=1)
-        self.emgCurve = self.emgPlot.plot(pen=self.emgPen)
-        if self.showTrigger:
             self.triggerPen = pg.mkPen(color=(100, 149, 237), width=5)
             self.triggerCurve = self.triggerPlot.plot(pen=self.triggerPen)
 
         timer = QtCore.QTimer()
         timer.timeout.connect(self.update)
         timer.start(speed)
-
         QtGui.QApplication.instance().exec_()
 
     def update(self):
-        # TODO: alternativa para o pandas
+        global staticTrigger
         data = read_csv('data_show.csv')
-        time = Sr.tolist(data['time [ms]'])
-        rawSignal = Sr.tolist(data['amplitude [mV] - raw'])
-        filterSignal = Sr.tolist(data['amplitude [mV] - filtered'])
-        triggerSignal = Sr.tolist(data['trigger'])
+        time = Series.tolist(data['time [ms]'])
+        rawSignal = Series.tolist(data['amplitude [mV] - raw'])
+        filterSignal = Series.tolist(data['amplitude [mV] - filtered'])
+        triggerSignal = Series.tolist(data['trigger'])
 
+        # Trigger to show the static plot
+        if len(self.staticSignal) == self.staticSize and staticTrigger is True:
+            staticTime = np.arange(0, len(self.staticSignal)) / self.sampFreq
+            if self.savePlot:
+                save_static(x=staticTime, y=self.staticSignal, saveLocation=self.saveLocation)
+            self.staticSignal = []
+        elif staticTrigger:
+            self.staticSignal.append(filterSignal[-10])
+
+        # Insert data to plot
+        if len(self.staticSignal) == self.staticSize:
+            staticTime = np.arange(0, len(self.staticSignal)) / self.sampFreq
+            self.staticCurve.setData(staticTime, self.staticSignal)
+            staticTrigger = False
         if self.rawSignal:
             self.rawCurve.setData(time[-self.winSize:], rawSignal[-self.winSize:])
-
         self.emgCurve.setData(time[-self.winSize:], filterSignal[-self.winSize:])
-
         if self.showTrigger:
             self.triggerCurve.setData(time[-self.winSize:], triggerSignal[-self.winSize:])
 
@@ -115,27 +170,27 @@ class Plotter:
 
 
 class EmgThread(threading.Thread):
-    def __init__(self, port: str, winsize=2000):
+    def __init__(self, port: str, winSize=2000):
         threading.Thread.__init__(self)
-        self.tmsFlag = False
-        self.sampFreq = 256 * 6
-        self.winSize = winsize
-        self.b, self.a = signal.butter(3, 0.03)
-        self.calValues = 0
-        self.initFilter = signal.lfilter_zi(self.b, self.a)
-        self.packets = np.array([])
-        self.port = port
-        self.rawValues = np.array([])
-        self.serialValues = 0
-        self.time = np.array([0])
-        self.triggerValues = np.zeros(self.winSize)
         self.value = ()
-
+        self.port = port
+        self.calValues = 0
+        self.tmsFlag = False
+        self.serialValues = 0
+        self.winSize = winSize
+        self.sampFreq = 256
+        self.time = np.array([0])
+        self.packets = np.array([])
+        self.rawValues = np.array([])
+        self.triggerValues = np.zeros(self.winSize)
+        self.b, self.a = signal.butter(3, 0.03)
+        self.initFilter = signal.lfilter_zi(self.b, self.a)
         self.serialPort = serial.Serial(
             port=port,
             baudrate=57600,
             bytesize=8
         )
+
         self.fieldnames = [
             'time [ms]',
             'amplitude [mV] - raw',
@@ -145,18 +200,18 @@ class EmgThread(threading.Thread):
         with open('data_all.csv', 'w') as self.csv_file:
             self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=self.fieldnames)
             self.csv_writer.writeheader()
-
         with open('data_show.csv', 'w') as self.csv_file:
             self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=self.fieldnames)
             self.csv_writer.writeheader()
 
     def trigger(self):
+        global staticTrigger
         if kb.is_pressed('e'):
             if self.tmsFlag is False:
+                staticTrigger = True
                 self.tmsFlag = True
                 self.serialPort.write(b'H')
                 self.triggerValues = np.append(self.triggerValues, 1.)
-
         else:
             self.triggerValues = np.append(self.triggerValues, 0.)
             self.tmsFlag = False
@@ -192,6 +247,7 @@ class EmgThread(threading.Thread):
             firstFilter,
             zi=self.initFilter * firstFilter[0]
         )
+
         return plotFilter
 
     def truncate(self):
@@ -233,7 +289,6 @@ class EmgThread(threading.Thread):
                 EmgThread.readsignal(self)
             self.calValues = 0.125 * self.serialValues / 1023
             self.rawValues = np.append(self.rawValues, self.calValues)
-
         while True:
             if self.serialPort.inWaiting() > 0:
                 EmgThread.calibsignal(self)
@@ -253,26 +308,7 @@ class EmgThread(threading.Thread):
                 self.triggerValues = np.delete(self.triggerValues, 0, 0)
 
 
-# def load():
-#     app = wx.App()
-#     dlg = gui.Dialog(None)
-#     dlg.Show()
-#     app.MainLoop()
-
-# def load():
-#     p = project.Project()
-#     g = gui.Dialog(wx.GetApp().GetTopWindow())
-#
-#     if g.ShowModal() == wx.ID_OK:
-#         pass
-#
-#     g.Destroy()
-
 if __name__ == '__main__':
     emg = EmgThread(port='COM4')
     emg.start()
-
-    # plotlib = MatPlotPlotter()
-    # plotlib.run()
-
-    qt = Plotter(rawSignal=True, showTrigger=True)
+    Plotter(showTrigger=True)

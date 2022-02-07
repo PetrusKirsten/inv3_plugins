@@ -1,8 +1,8 @@
 import wx
-from . import emg
-# import emg
-from . import spiralTMS
-# import spiralTMS
+import emg
+import spiralTMS
+# from . import emg
+# from . import spiralTMS
 import matplotlib as mpl
 from pubsub import pub as Publisher
 from matplotlib import pyplot as plt
@@ -16,9 +16,12 @@ class Window(wx.Dialog):
             title='Automated motor mapping',
             style=wx.DEFAULT_DIALOG_STYLE | wx.FRAME_FLOAT_ON_PARENT,
         )
+        self.saveplot_check = wx.CheckBox(self, -1, 'Save the estimulation plot')
         self.buttons_traj = wx.BoxSizer(wx.VERTICAL)
         self.noPath_traj = wx.StaticText(self, -1)
         self.path_traj = wx.StaticText(self, -1)
+        self.savePlot = None
+        self.location = None
         self.x_ctrl = None
         self.y_ctrl = None
         self.z_ctrl = None
@@ -29,78 +32,6 @@ class Window(wx.Dialog):
         self.ports = emg.serial_ports()
 
         self.initgui()
-
-    def onselect(self, evt):
-        self.portIndex = evt.GetSelection()
-
-    def onpath(self, evt):
-        with wx.FileDialog(self, 'Save EMG plots', wildcard='PNG files (*.png)|*.png',
-                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
-            if fileDialog.ShowModal() == wx.ID_CANCEL:
-                return
-
-            pathname = fileDialog.GetPath()
-            print(f'saving plot estimulations as {pathname}')
-            # try:
-            #     with open(pathname, 'w') as file:
-            #         print(pathname)
-            # except IOError:
-            #     wx.LogError("Cannot save current data in file '%s'." % pathname)
-
-    def oncancel(self, evt):
-        print('Closing automated motor maping dialog')
-        self.Close(True)
-
-    def onrun(self, evt):
-        print('Run realtime EMG plot...')
-        try:
-            emgPlot = emg.EmgThread(port=self.ports[self.portIndex])
-            emgPlot.start()
-            emg.Plotter(rawSignal=True, showTrigger=True)
-        except SerialException:
-            print('Unable to access this serial port')
-        except TypeError:
-            print('Select an available serial port')
-
-    def ongenerate(self, evt):
-        print('Generating coil path')
-        mpl.rcParams['toolbar'] = 'None'
-        plt.figure('Robotic coil trajectory preview')
-        plt.style.use('ggplot')
-        plt.xlabel('X [mm]')
-        plt.ylabel('Y [mm]')
-        plt.title('Coordinate System')
-        try:
-            x_marker, y_marker, x_path, y_path, data = spiralTMS.ellipse_path(
-                x_hotspot=float(self.x_ctrl.GetValue()),
-                y_hotspot=float(self.x_ctrl.GetValue()),
-                z_hotspot=float(self.x_ctrl.GetValue()),
-                e=float(self.ecc_ctrl.GetValue()),
-                size=float(self.radius_ctrl.GetValue()),
-                distance=float(self.pointsdist_ctrl.GetValue())
-            )
-            spiralTMS.info(data)
-            plt.plot(
-                x_path,
-                y_path,
-                color='k',
-                linewidth=0.5,
-                label='TMS coil path'
-            )
-            plt.scatter(
-                x_marker,
-                y_marker,
-                color='r',
-                label='TMS stimulation'
-            )
-            plt.legend()
-            plt.show()
-            self.noPath_traj.Destroy()
-
-        except TypeError:
-            pass
-        except RuntimeError:
-            pass
 
     def initgui(self):
         # EMG plotting GUI
@@ -115,9 +46,8 @@ class Window(wx.Dialog):
         )
 
         save_plot = wx.BoxSizer(wx.VERTICAL)
-        saveplot_check = wx.CheckBox(self, -1, 'Save the estimulation plot')
         save_plot.Add(
-            saveplot_check,
+            self.saveplot_check,
             0, wx.ALIGN_CENTER_HORIZONTAL
         )
         save_plot.Add(
@@ -151,7 +81,8 @@ class Window(wx.Dialog):
             1, wx.ALIGN_RIGHT | wx.LEFT | wx.RIGHT, 20
         )
         self.Bind(wx.EVT_COMBOBOX, self.onselect)
-        self.Bind(wx.EVT_BUTTON, self.onpath, id=1)
+        self.Bind(wx.EVT_CHECKBOX, self.onsaveplot)
+        self.Bind(wx.EVT_BUTTON, self.onlocation, id=1)
         self.Bind(wx.EVT_BUTTON, self.oncancel, id=2)
         self.Bind(wx.EVT_BUTTON, self.onrun, id=3)
 
@@ -218,9 +149,90 @@ class Window(wx.Dialog):
         main_sizer.Fit(self)
         self.Layout()
 
+    def onselect(self, evt):
+        self.portIndex = evt.GetSelection()
+
+    def onsaveplot(self, evt):
+        if self.saveplot_check.GetValue():
+            self.savePlot = True
+        else:
+            self.savePlot = False
+
+    def onlocation(self, evt):
+        from datetime import datetime
+        # TODO: colocar uma condição para caso o usuário esqueça de selecionar o local de destino
+        with wx.FileDialog(self, 'Save EMG plots',
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+            self.location = fileDialog.GetPath()
+            print(f'saving plot estimulations as {self.location}')
+
+    def oncancel(self, evt):
+        print('Closing automated motor maping dialog')
+        # TODO: close pyqt window
+        self.Close(True)
+
+    def onrun(self, evt):
+        print('Run realtime EMG plot...')
+        try:
+            emgPlot = emg.EmgThread(port=self.ports[self.portIndex])
+            emgPlot.start()
+            emg.Plotter(savePlot=self.savePlot, saveLocation=self.location, showTrigger=True)
+        except SerialException:
+            print('Unable to access this serial port')
+        except TypeError:
+            print('Select an available serial port')
+
+    def ongenerate(self, evt):
+        print('Generating coil path')
+        mpl.rcParams['toolbar'] = 'None'
+        plt.figure('Robotic coil trajectory preview')
+        plt.style.use('ggplot')
+        plt.xlabel('X [mm]')
+        plt.ylabel('Y [mm]')
+        plt.title('Coordinate System')
+        try:
+            x_marker, y_marker, x_path, y_path, data = spiralTMS.ellipse_path(
+                x_hotspot=float(self.x_ctrl.GetValue()),
+                y_hotspot=float(self.x_ctrl.GetValue()),
+                z_hotspot=float(self.x_ctrl.GetValue()),
+                e=float(self.ecc_ctrl.GetValue()),
+                size=float(self.radius_ctrl.GetValue()),
+                distance=float(self.pointsdist_ctrl.GetValue())
+            )
+            spiralTMS.info(data)
+            plt.plot(
+                x_path,
+                y_path,
+                color='k',
+                linewidth=0.5,
+                label='TMS coil path'
+            )
+            plt.scatter(
+                x_marker,
+                y_marker,
+                color='r',
+                label='TMS stimulation'
+            )
+            plt.legend()
+            plt.show()
+            self.noPath_traj.Destroy()
+
+        except TypeError:
+            pass
+        except RuntimeError:
+            pass
+
+
+class MyApp(wx.App):
+    def OnInit(self):
+        self.dlg = Window(None)
+        self.SetTopWindow(self.dlg)
+        self.dlg.Show()
+        return True
+
 
 if __name__ == "__main__":
-    app = wx.App()
-    window = Window(None)
-    window.Show()
+    app = MyApp(0)
     app.MainLoop()
