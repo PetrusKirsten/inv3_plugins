@@ -8,7 +8,6 @@ import threading
 import numpy as np
 import keyboard as kb
 import pyqtgraph as pg
-import matplotlib as mpl
 from scipy import signal
 from pandas import Series
 from pandas import read_csv
@@ -47,31 +46,33 @@ def serial_ports():
 
 def save_static(x, y, saveLocation):
     from datetime import datetime
-
     plt.style.use('dark_background')
     plt.xlabel('Time [s]')
     plt.ylabel('Amplitude Signal [mV]')
     plt.ylim(-0.01, 0.01)
     plt.title(datetime.now().strftime('Triggered signal at %d-%m-%Y %H:%M:%S'))
     plt.plot(
-        x,
-        y,
-        color='#48C9B0',
-        linewidth=2
+        x, y, linewidth=2,
+        color='#48C9B0'
     )
-    plt.savefig(saveLocation + '_' + datetime.now().strftime("%d%m%Y%H%M%S") + '.png')
-    plt.close()
+    if saveLocation is None:
+        plt.savefig('triggered-signal_' + datetime.now().strftime("%d%m%Y%H%M%S") + '.png')
+        plt.close()
+    if saveLocation is not None:
+        plt.savefig(saveLocation + '_' + datetime.now().strftime("%d%m%Y%H%M%S") + '.png')
+        plt.close()
 
 
 class Plotter:
-    def __init__(self,
-                 savePlot,
-                 saveLocation,
-                 winSize=500,
-                 speed=4,
-                 rawSignal=False,
-                 showTrigger=False
-                 ):
+    def __init__(
+            self,
+            savePlot=False,
+            saveLocation=None,
+            winSize=500,
+            speed=4,
+            rawSignal=False,
+            showTrigger=False
+    ):
         global staticTrigger
         staticTrigger = False
         self.savePlot = savePlot
@@ -311,4 +312,4 @@ class EmgThread(threading.Thread):
 if __name__ == '__main__':
     emg = EmgThread(port='COM4')
     emg.start()
-    Plotter(showTrigger=True)
+    Plotter(showTrigger=True, savePlot=False)

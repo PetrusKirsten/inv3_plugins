@@ -5,5 +5,5 @@ import gui
 
 
 def load():
-    g = gui.Window(wx.GetApp().GetTopWindow())
+    g = gui.EMGui(wx.GetApp().GetTopWindow())
     g.Show()

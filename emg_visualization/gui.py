@@ -1,5 +1,6 @@
 import wx
 import emg
+import sys
 import spiralTMS
 # from . import emg
 # from . import spiralTMS
@@ -9,7 +10,7 @@ from matplotlib import pyplot as plt
 from serial.serialutil import SerialException
 
 
-class Window(wx.Dialog):
+class EMGui(wx.Dialog):
     def __init__(self, parent):
         super().__init__(
             parent,
@@ -20,8 +21,8 @@ class Window(wx.Dialog):
         self.buttons_traj = wx.BoxSizer(wx.VERTICAL)
         self.noPath_traj = wx.StaticText(self, -1)
         self.path_traj = wx.StaticText(self, -1)
-        self.savePlot = None
         self.location = None
+        self.savePlot = None
         self.x_ctrl = None
         self.y_ctrl = None
         self.z_ctrl = None
@@ -159,18 +160,16 @@ class Window(wx.Dialog):
             self.savePlot = False
 
     def onlocation(self, evt):
-        from datetime import datetime
-        # TODO: colocar uma condição para caso o usuário esqueça de selecionar o local de destino
         with wx.FileDialog(self, 'Save EMG plots',
                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
+
             self.location = fileDialog.GetPath()
             print(f'saving plot estimulations as {self.location}')
 
     def oncancel(self, evt):
         print('Closing automated motor maping dialog')
-        # TODO: close pyqt window
         self.Close(True)
 
     def onrun(self, evt):
@@ -178,7 +177,11 @@ class Window(wx.Dialog):
         try:
             emgPlot = emg.EmgThread(port=self.ports[self.portIndex])
             emgPlot.start()
-            emg.Plotter(savePlot=self.savePlot, saveLocation=self.location, showTrigger=True)
+            emg.Plotter(
+                savePlot=self.savePlot,
+                saveLocation=self.location,
+                showTrigger=True
+            )
         except SerialException:
             print('Unable to access this serial port')
         except TypeError:
@@ -227,7 +230,7 @@ class Window(wx.Dialog):
 
 class MyApp(wx.App):
     def OnInit(self):
-        self.dlg = Window(None)
+        self.dlg = EMGui(None)
         self.SetTopWindow(self.dlg)
         self.dlg.Show()
         return True
