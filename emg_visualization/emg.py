@@ -66,10 +66,9 @@ def save_static(x, y, saveLocation):
 class Plotter:
     def __init__(
             self,
+            winSize=500,
             savePlot=False,
             saveLocation=None,
-            winSize=500,
-            speed=4,
             rawSignal=False,
             showTrigger=False
     ):
@@ -78,12 +77,11 @@ class Plotter:
         self.savePlot = savePlot
         self.saveLocation = saveLocation
         self.staticSize = 50
-        self.sampFreq = 256
+        self.sampFreq = 873
         self.staticSignal = []
         self.showTrigger = showTrigger
         self.rawSignal = rawSignal
         self.winSize = winSize
-        self.speed = speed
 
         # PyQtGraph config
         self.app = QtGui.QApplication([])
@@ -98,7 +96,7 @@ class Plotter:
         self.emgPlot.setLabel(axis='left', text='Amplitude Signal [mV]')
         self.emgPlot.setLabel(axis='bottom', text='Time [s]')
         self.emgPlot.showGrid(x=True, y=True, alpha=0.15)
-        self.emgPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
+        # self.emgPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
         self.emgPlot.getAxis('left').setTextPen('w')
         self.emgPlot.getAxis('bottom').setTextPen('w')
         self.emgPlot.setYRange(-0.01, 0.01)
@@ -127,7 +125,7 @@ class Plotter:
             self.triggerPlot.setLabel(axis='left', text='Amplitude')
             self.triggerPlot.setLabel(axis='bottom', text='Time [ms]')
             self.triggerPlot.showGrid(x=True, y=True, alpha=0.15)
-            self.triggerPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
+            # self.triggerPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
             self.triggerPlot.getAxis('left').setTextPen('w')
             self.triggerPlot.getAxis('bottom').setTextPen('w')
             self.triggerPlot.setYRange(0, 1)
@@ -136,7 +134,7 @@ class Plotter:
 
         timer = QtCore.QTimer()
         timer.timeout.connect(self.update)
-        timer.start(speed)
+        timer.start()
         QtGui.QApplication.instance().exec_()
 
     def update(self):
@@ -171,7 +169,7 @@ class Plotter:
 
 
 class EmgThread(threading.Thread):
-    def __init__(self, port: str, winSize=2000):
+    def __init__(self, port: str, winSize=500):
         threading.Thread.__init__(self)
         self.value = ()
         self.port = port
@@ -179,7 +177,7 @@ class EmgThread(threading.Thread):
         self.tmsFlag = False
         self.serialValues = 0
         self.winSize = winSize
-        self.sampFreq = 256
+        self.sampFreq = 873
         self.time = np.array([0])
         self.packets = np.array([])
         self.rawValues = np.array([])
@@ -188,7 +186,7 @@ class EmgThread(threading.Thread):
         self.initFilter = signal.lfilter_zi(self.b, self.a)
         self.serialPort = serial.Serial(
             port=port,
-            baudrate=57600,
+            baudrate=9600,
             bytesize=8
         )
 
@@ -295,7 +293,7 @@ class EmgThread(threading.Thread):
                 EmgThread.calibsignal(self)
                 plotFilter = EmgThread.filtering(self)
                 EmgThread.trigger(self)
-                self.time = np.append(self.time, self.time[-1] + (self.sampFreq ** (-1)))
+                self.time = np.append(self.time, self.time[-1] + 1)
 
                 EmgThread.writer(self, filtered=plotFilter, truncate=False)
 
