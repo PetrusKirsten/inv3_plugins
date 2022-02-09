@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import wx
-import gui
-# from . import gui
+from . import gui
 
 
 def load():

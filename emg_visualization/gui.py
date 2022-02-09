@@ -1,11 +1,9 @@
+import serial
 import wx
-import emg
-import sys
-import spiralTMS
-# from . import emg
-# from . import spiralTMS
+from . import emg
+from . import spiralTMS
 import matplotlib as mpl
-from pubsub import pub as Publisher
+# from pubsub import pub as Publisher
 from matplotlib import pyplot as plt
 from serial.serialutil import SerialException
 
@@ -45,7 +43,6 @@ class EMGui(wx.Dialog):
             wx.ComboBox(self, -1, style=wx.CB_READONLY, choices=emg.serial_ports()),
             1, wx.EXPAND
         )
-
         save_plot = wx.BoxSizer(wx.VERTICAL)
         save_plot.Add(
             self.saveplot_check,
@@ -55,7 +52,6 @@ class EMGui(wx.Dialog):
             wx.Button(self, 1, 'Location'),
             0, wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 10
         )
-
         buttons_plot = wx.BoxSizer(wx.HORIZONTAL)
         buttons_plot.Add(
             wx.Button(self, 2, 'Cancel'), 0,
@@ -64,9 +60,7 @@ class EMGui(wx.Dialog):
         buttons_plot.Add(
             wx.Button(self, 3, 'Run', size=(-1, 56)), 0,
             wx.ALIGN_BOTTOM
-
         )
-
         plot_sizer = wx.StaticBoxSizer(
             wx.VERTICAL, self,
             'EMG Visualization')
@@ -95,14 +89,12 @@ class EMGui(wx.Dialog):
         self.ecc_ctrl = wx.TextCtrl(self, -1, '0.75', size=ctrl_size)
         self.radius_ctrl = wx.TextCtrl(self, -1, '40', size=ctrl_size)
         self.pointsdist_ctrl = wx.TextCtrl(self, -1, '20', size=ctrl_size)
-
         x_sta = wx.StaticText(self, -1, 'X axis hotspot:')
         y_sta = wx.StaticText(self, -1, 'Y axis hotspot:')
         z_sta = wx.StaticText(self, -1, 'Z axis hotspot:')
         ecc_sta = wx.StaticText(self, -1, 'Ellipse eccentricity:')
         radius_sta = wx.StaticText(self, -1, 'Max ellipse radius [mm]:')
         pointsdist_sta = wx.StaticText(self, -1, 'Points distance [mm]:')
-
         txt_traj = wx.FlexGridSizer(3, 4, 10, 10)
         txt_traj.AddMany(
             ((x_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.x_ctrl, 0),
@@ -112,7 +104,6 @@ class EMGui(wx.Dialog):
              (z_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.z_ctrl, 0),
              (pointsdist_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.pointsdist_ctrl, 0),)
         )
-
         self.noPath_traj.SetLabel('   No path generate yet.   ')
         self.noPath_traj.SetBackgroundColour('YELLOW')
         self.buttons_traj.Add(
@@ -122,7 +113,6 @@ class EMGui(wx.Dialog):
             wx.Button(self, 4, 'Generate trajectory', size=(150, 35)),
             0, wx.ALIGN_CENTER_HORIZONTAL,
         )
-
         traj_sizer = wx.StaticBoxSizer(wx.VERTICAL, self, 'Robotic coil trajectory')
         traj_sizer.Add(
             txt_traj, 0,
@@ -132,7 +122,6 @@ class EMGui(wx.Dialog):
             self.buttons_traj, 0,
             wx.ALIGN_CENTER_HORIZONTAL | wx.LEFT, 20
         )
-
         self.Bind(wx.EVT_BUTTON, self.ongenerate, id=4)
 
         # Main sizer GUI
@@ -145,7 +134,6 @@ class EMGui(wx.Dialog):
             plot_sizer, 0,
             wx.EXPAND | wx.ALL, 5
         )
-
         self.SetSizer(main_sizer)
         main_sizer.Fit(self)
         self.Layout()
@@ -164,7 +152,6 @@ class EMGui(wx.Dialog):
                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
                 return
-
             self.location = fileDialog.GetPath()
             print(f'saving plot estimulations as {self.location}')
 
@@ -175,13 +162,19 @@ class EMGui(wx.Dialog):
     def onrun(self, evt):
         print('Run realtime EMG plot...')
         try:
-            emgPlot = emg.EmgThread(port=self.ports[self.portIndex])
+            serialPort = serial.Serial(
+                port=self.ports[self.portIndex],
+                baudrate=9600,
+                bytesize=8
+            )
+            emgPlot = emg.EmgThread(port=serialPort)
             emgPlot.start()
             emg.Plotter(
                 savePlot=self.savePlot,
                 saveLocation=self.location,
                 showTrigger=True
             )
+            serialPort.close()
         except SerialException:
             print('Unable to access this serial port')
         except TypeError:
@@ -221,7 +214,6 @@ class EMGui(wx.Dialog):
             plt.legend()
             plt.show()
             self.noPath_traj.Destroy()
-
         except TypeError:
             pass
         except RuntimeError:

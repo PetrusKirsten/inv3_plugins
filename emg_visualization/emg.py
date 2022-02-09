@@ -58,7 +58,7 @@ def save_static(x, y, saveLocation):
     if saveLocation is None:
         plt.savefig('triggered-signal_' + datetime.now().strftime("%d%m%Y%H%M%S") + '.png')
         plt.close()
-    if saveLocation is not None:
+    else:
         plt.savefig(saveLocation + '_' + datetime.now().strftime("%d%m%Y%H%M%S") + '.png')
         plt.close()
 
@@ -169,12 +169,11 @@ class Plotter:
 
 
 class EmgThread(threading.Thread):
-    def __init__(self, port: str, winSize=500):
+    def __init__(self, port, winSize=500):
         threading.Thread.__init__(self)
         self.value = ()
-        self.port = port
-        self.calValues = 0
         self.tmsFlag = False
+        self.calValues = 0
         self.serialValues = 0
         self.winSize = winSize
         self.sampFreq = 873
@@ -184,12 +183,7 @@ class EmgThread(threading.Thread):
         self.triggerValues = np.zeros(self.winSize)
         self.b, self.a = signal.butter(3, 0.03)
         self.initFilter = signal.lfilter_zi(self.b, self.a)
-        self.serialPort = serial.Serial(
-            port=port,
-            baudrate=9600,
-            bytesize=8
-        )
-
+        self.serialPort = port
         self.fieldnames = [
             'time [ms]',
             'amplitude [mV] - raw',
@@ -216,10 +210,11 @@ class EmgThread(threading.Thread):
             self.tmsFlag = False
 
     def readsignal(self):
-        line = self.serialPort.readline()
-        if line:
+        if self.serialPort is None:
+            pass
+        elif self.serialPort.readline():
             try:
-                self.value = line.decode("utf-8").partition("\r")[0]
+                self.value = self.serialPort.readline().decode("utf-8").partition("\r")[0]
             except ValueError:
                 self.value = 0
                 pass
@@ -267,7 +262,6 @@ class EmgThread(threading.Thread):
                     'trigger': self.triggerValues[-1]
                 }
                 self.csv_writer.writerow(info)
-
         if truncate:
             with open('data_show.csv', 'a') as self.csv_file:
                 self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=self.fieldnames)
@@ -278,7 +272,6 @@ class EmgThread(threading.Thread):
                     'trigger': self.triggerValues[-1]
                 }
                 self.csv_writer.writerow(info)
-
         if type(truncate) is not bool:
             print(TypeError)
 
@@ -289,22 +282,25 @@ class EmgThread(threading.Thread):
             self.calValues = 0.125 * self.serialValues / 1023
             self.rawValues = np.append(self.rawValues, self.calValues)
         while True:
-            if self.serialPort.inWaiting() > 0:
-                EmgThread.calibsignal(self)
-                plotFilter = EmgThread.filtering(self)
-                EmgThread.trigger(self)
-                self.time = np.append(self.time, self.time[-1] + 1)
+            try:
+                if self.serialPort.inWaiting() > 0:
+                    EmgThread.calibsignal(self)
+                    plotFilter = EmgThread.filtering(self)
+                    EmgThread.trigger(self)
+                    self.time = np.append(self.time, self.time[-1] + 1)
 
-                EmgThread.writer(self, filtered=plotFilter, truncate=False)
+                    EmgThread.writer(self, filtered=plotFilter, truncate=False)
 
-                dataSize = os.path.getsize("data_show.csv")
-                if dataSize > 10000000:
-                    EmgThread.truncate(self)
-                EmgThread.writer(self, filtered=plotFilter, truncate=True)
+                    dataSize = os.path.getsize("data_show.csv")
+                    if dataSize > 10000000:
+                        EmgThread.truncate(self)
+                    EmgThread.writer(self, filtered=plotFilter, truncate=True)
 
-                self.time = np.delete(self.time, 0, 0)
-                self.rawValues = np.delete(self.rawValues, 0, 0)
-                self.triggerValues = np.delete(self.triggerValues, 0, 0)
+                    self.time = np.delete(self.time, 0, 0)
+                    self.rawValues = np.delete(self.rawValues, 0, 0)
+                    self.triggerValues = np.delete(self.triggerValues, 0, 0)
+            except serial.serialutil.SerialException:
+                pass
 
 
 if __name__ == '__main__':
