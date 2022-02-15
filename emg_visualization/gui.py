@@ -1,12 +1,14 @@
 import serial
 import wx
-from . import emg
-from . import spiralTMS
+import emg
+import spiralTMS
+# from . import emg
+# from . import spiralTMS
 import matplotlib as mpl
 # from pubsub import pub as Publisher
 from matplotlib import pyplot as plt
 from serial.serialutil import SerialException
-
+import invesalius.project as prj
 
 class EMGui(wx.Dialog):
     def __init__(self, parent):
@@ -15,25 +17,26 @@ class EMGui(wx.Dialog):
             title='Automated motor mapping',
             style=wx.DEFAULT_DIALOG_STYLE | wx.FRAME_FLOAT_ON_PARENT,
         )
+        # EMG visualization variables
         self.saveplot_check = wx.CheckBox(self, -1, 'Save the estimulation plot')
-        self.buttons_traj = wx.BoxSizer(wx.VERTICAL)
-        self.noPath_traj = wx.StaticText(self, -1)
-        self.path_traj = wx.StaticText(self, -1)
-        self.location = None
         self.savePlot = None
+        self.location = None
+        self.portIndex = None
+        self.ports = emg.serial_ports()
+        # Robot coil trajectory variables
         self.x_ctrl = None
         self.y_ctrl = None
         self.z_ctrl = None
         self.ecc_ctrl = None
         self.radius_ctrl = None
         self.pointsdist_ctrl = None
-        self.portIndex = None
-        self.ports = emg.serial_ports()
+        self.noPath_traj = wx.StaticText(self, -1)
+        self.buttons_traj = wx.BoxSizer(wx.VERTICAL)
 
         self.initgui()
 
     def initgui(self):
-        # EMG plotting GUI
+        # EMG visualization GUI
         combobox_plot = wx.BoxSizer(wx.HORIZONTAL)
         combobox_plot.Add(
             wx.StaticText(self, -1, 'Serial Port'),
@@ -81,7 +84,7 @@ class EMGui(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.oncancel, id=2)
         self.Bind(wx.EVT_BUTTON, self.onrun, id=3)
 
-        # Path generation GUI
+        # Robot coil trajectory GUI
         ctrl_size = (60, -1)
         self.x_ctrl = wx.TextCtrl(self, -1, '0.00', size=ctrl_size)
         self.y_ctrl = wx.TextCtrl(self, -1, '0.00', size=ctrl_size)
@@ -89,12 +92,14 @@ class EMGui(wx.Dialog):
         self.ecc_ctrl = wx.TextCtrl(self, -1, '0.75', size=ctrl_size)
         self.radius_ctrl = wx.TextCtrl(self, -1, '40', size=ctrl_size)
         self.pointsdist_ctrl = wx.TextCtrl(self, -1, '20', size=ctrl_size)
+
         x_sta = wx.StaticText(self, -1, 'X axis hotspot:')
         y_sta = wx.StaticText(self, -1, 'Y axis hotspot:')
         z_sta = wx.StaticText(self, -1, 'Z axis hotspot:')
         ecc_sta = wx.StaticText(self, -1, 'Ellipse eccentricity:')
         radius_sta = wx.StaticText(self, -1, 'Max ellipse radius [mm]:')
         pointsdist_sta = wx.StaticText(self, -1, 'Points distance [mm]:')
+
         txt_traj = wx.FlexGridSizer(3, 4, 10, 10)
         txt_traj.AddMany(
             ((x_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.x_ctrl, 0),
@@ -138,16 +143,16 @@ class EMGui(wx.Dialog):
         main_sizer.Fit(self)
         self.Layout()
 
-    def onselect(self, evt):
+    def onselect(self, evt):  # Select the serial port to connect the EMG
         self.portIndex = evt.GetSelection()
 
-    def onsaveplot(self, evt):
+    def onsaveplot(self, evt):  # To save the triggered estimulation plots
         if self.saveplot_check.GetValue():
             self.savePlot = True
         else:
             self.savePlot = False
 
-    def onlocation(self, evt):
+    def onlocation(self, evt):  # Select the destination path to save de trig. est. plots
         with wx.FileDialog(self, 'Save EMG plots',
                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
@@ -155,11 +160,11 @@ class EMGui(wx.Dialog):
             self.location = fileDialog.GetPath()
             print(f'saving plot estimulations as {self.location}')
 
-    def oncancel(self, evt):
+    def oncancel(self, evt):  # Close dialog
         print('Closing automated motor maping dialog')
         self.Close(True)
 
-    def onrun(self, evt):
+    def onrun(self, evt):  # Run de quasi-realtime emg visualization
         print('Run realtime EMG plot...')
         try:
             serialPort = serial.Serial(
@@ -180,8 +185,8 @@ class EMGui(wx.Dialog):
         except TypeError:
             print('Select an available serial port')
 
-    def ongenerate(self, evt):
-        print('Generating coil path')
+    def ongenerate(self, evt):  # Generate the 2D ellipse trajectory
+        print('Generating coil trajectory')
         mpl.rcParams['toolbar'] = 'None'
         plt.figure('Robotic coil trajectory preview')
         plt.style.use('ggplot')
