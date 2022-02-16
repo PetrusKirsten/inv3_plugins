@@ -1,0 +1,5 @@
+{
+    "name": "Automated motor map",
+    "description": "Perform an automated motor mapping session",
+    "enable-startup": true
+}

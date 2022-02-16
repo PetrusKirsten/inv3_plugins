@@ -70,26 +70,26 @@ def ellipse_path(
 
         data_array = [radius, distance, delta, counter]
 
-        z_marker_values = np.full_like(x_marker_values, z_hotspot)
-        zero_values = np.full_like(x_marker_values, 0.000)
-        one_values = np.full_like(x_marker_values, 1.000)
-        two_values = np.full_like(x_marker_values, 2.000)
+        # z_marker_values = np.full_like(x_marker_values, z_hotspot)
+        # zero_values = np.full_like(x_marker_values, 0.000)
+        # one_values = np.full_like(x_marker_values, 1.000)
+        # two_values = np.full_like(x_marker_values, 2.000)
 
-        export_array = np.transpose(np.array(
-            [x_marker_values,
-             y_marker_values,
-             z_marker_values,
-             zero_values,
-             zero_values,
-             zero_values,
-             one_values,
-             one_values,
-             zero_values,
-             two_values
-             ]
-        ))
-        file_name = datetime.now().strftime('%d%m%Y%H%M')
-        np.savetxt(f'stim-coord_{file_name}.mks', export_array, fmt='%s')
+        # export_array = np.transpose(np.array(
+        #     [x_marker_values,
+        #      y_marker_values,
+        #      z_marker_values,
+        #      zero_values,
+        #      zero_values,
+        #      zero_values,
+        #      one_values,
+        #      one_values,
+        #      zero_values,
+        #      two_values
+        #      ]
+        # ))
+        # file_name = datetime.now().strftime('%d%m%Y%H%M')
+        # np.savetxt(f'stim-coord_{file_name}.mks', export_array, fmt='%s')
 
         return x_marker_values, y_marker_values, x_values, y_values, data_array
 
