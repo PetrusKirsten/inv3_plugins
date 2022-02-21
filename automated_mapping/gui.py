@@ -85,7 +85,6 @@ class MotorMapGui(wx.Dialog):
         self.prev_error = None
         self.final_error = None
         self.initial_focus = None
-        self.btn_apply_icp = None
         self.collect_points = None
         self.combo_surface_name = None
 
@@ -220,7 +219,7 @@ class MotorMapGui(wx.Dialog):
 
         self.generateButton = wx.Button(
             self, 4,
-            'Generate 2D trajectory',
+            'Generate trajectory',
             size=(175, -1))
         self.generateButton.Enable(False)
         self.buttons_sizer.Add(
@@ -229,12 +228,6 @@ class MotorMapGui(wx.Dialog):
 
         init_surface = 0
         combo_surface_name.SetSelection(init_surface)
-        self.btn_apply_icp = wx.Button(self, -1, label='Apply registration')
-        self.btn_apply_icp.Bind(wx.EVT_BUTTON, self.OnICP)
-        self.btn_apply_icp.Enable(False)
-        self.buttons_sizer.Add(
-            self.btn_apply_icp, 0,
-            wx.ALIGN_CENTER_HORIZONTAL | wx.RIGHT, 5)
 
         self.bottom_sizer.Add(
             self.buttons_sizer, 0,
@@ -267,10 +260,10 @@ class MotorMapGui(wx.Dialog):
         self.Layout()
 
     def LoadActor(self):
-        '''
+        """
         Load the selected actor from the project (self.surface) into the scene
         :return:
-        '''
+        """
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInputData(self.surface)
         mapper.ScalarVisibilityOff()
@@ -305,7 +298,6 @@ class MotorMapGui(wx.Dialog):
         self.transformed_points = []
         self.m_icp = None
         self.SetProgress(0)
-        self.btn_apply_icp.Enable(False)
         self.ren.ResetCamera()
         self.interactor.Render()
 
@@ -322,19 +314,6 @@ class MotorMapGui(wx.Dialog):
     def SetProgress(self, progress):
         self.progress.SetValue(progress * 100)
         self.interactor.Render()
-
-    def vtkmatrix_to_numpy(self, matrix):
-        """
-        Copies the elements of a vtkMatrix4x4 into a numpy array.
-        param matrix: The matrix to be copied into an array.
-        type matrix: vtk.vtkMatrix4x4
-        :rtype: numpy.ndarray
-        """
-        m = np.ones((4, 4))
-        for i in range(4):
-            for j in range(4):
-                m[i, j] = matrix.GetElement(i, j)
-        return m
 
     def AddMarker(self, size, colour, coord):
         """
@@ -372,72 +351,8 @@ class MotorMapGui(wx.Dialog):
 
         self.interactor.Render()
 
-        if len(self.point_coord) >= 5 and self.btn_apply_icp.IsEnabled() is False:
-            self.btn_apply_icp.Enable(True)
-
-        if self.progress.GetValue() != 0:
-            self.SetProgress(0)
-
-    def OnICP(self, evt):
-        self.SetProgress(0.3)
-        time.sleep(1)
-
-        sourcePoints = np.array(self.point_coord)
-        sourcePoints_vtk = vtk.vtkPoints()
-
-        for i in range(len(sourcePoints)):
-            id0 = sourcePoints_vtk.InsertNextPoint(sourcePoints[i])
-
-        source = vtk.vtkPolyData()
-        source.SetPoints(sourcePoints_vtk)
-
-        icp = vtk.vtkIterativeClosestPointTransform()
-
-        icp.SetSource(source)
-        icp.SetTarget(self.surface)
-
-        self.SetProgress(0.5)
-
-        # icp.GetLandmarkTransform().SetModeToAffine()
-        # icp.GetLandmarkTransform().SetModeToSimilarity()
-        icp.GetLandmarkTransform().SetModeToRigidBody()
-
-        icp.DebugOn()
-        icp.SetMaximumNumberOfIterations(1000)
-        icp.Modified()
-        icp.Update()
-
-        self.m_icp = self.vtkmatrix_to_numpy(icp.GetMatrix())
-
-        icpTransformFilter = vtk.vtkTransformPolyDataFilter()
-        icpTransformFilter.SetInputData(source)
-
-        icpTransformFilter.SetTransform(icp)
-        icpTransformFilter.Update()
-
-        transformedSource = icpTransformFilter.GetOutput()
-
-        for i in range(transformedSource.GetNumberOfPoints()):
-            p = [0, 0, 0]
-            transformedSource.GetPoint(i, p)
-            self.transformed_points.append(p)
-            point = vtk.vtkSphereSource()
-            point.SetCenter(p)
-            point.SetRadius(3)
-            point.SetPhiResolution(3)
-            point.SetThetaResolution(3)
-
-            mapper = vtk.vtkPolyDataMapper()
-            mapper.SetInputConnection(point.GetOutputPort())
-
-            actor = vtk.vtkActor()
-            actor.SetMapper(mapper)
-            actor.GetProperty().SetColor((0, 1, 0))
-
-            self.ren.AddActor(actor)
-
-        self.interactor.Render()
-        self.SetProgress(1)
+        # if self.progress.GetValue() != 0:
+        #     self.SetProgress(0)
 
     def OnGen2d(self, evt):  # Generate the 2D ellipse trajectory
         self.RemoveActor()
@@ -460,6 +375,7 @@ class MotorMapGui(wx.Dialog):
                  float(self.y_marker[index]),
                  float(self.z_ctrl.GetValue())])
             self.AddMarker(3, (1, 0, 0), current_coord)
+        self.ICP()
 
     def OnSelCom(self, evt):  # Select the serial port to connect the EMG
         self.portIndex = evt.GetSelection()
@@ -503,6 +419,71 @@ class MotorMapGui(wx.Dialog):
             print('Unable to access this serial port')
         except TypeError:
             print('Select an available serial port')
+
+    def ICP(self):
+        self.SetProgress(0.1)
+        progressPoint = 1 / len(self.point_coord)
+        time.sleep(1)
+        for point in self.point_coord:
+            sourcePoints = np.array(point)
+            sourcePoints_vtk = vtk.vtkPoints()
+            for i in range(len(sourcePoints)):
+                id0 = sourcePoints_vtk.InsertNextPoint(sourcePoints)
+            source = vtk.vtkPolyData()
+            source.SetPoints(sourcePoints_vtk)
+
+            icp = vtk.vtkIterativeClosestPointTransform()
+            icp.SetSource(source)
+            icp.SetTarget(self.surface)
+
+            self.SetProgress(progressPoint)
+
+            icp.GetLandmarkTransform().SetModeToRigidBody()
+            icp.DebugOn()
+            icp.SetMaximumNumberOfIterations(250)
+            icp.Modified()
+            icp.Update()
+
+            self.m_icp = self.vtkmatrix2numpy(icp.GetMatrix())
+
+            icpTransformFilter = vtk.vtkTransformPolyDataFilter()
+            icpTransformFilter.SetInputData(source)
+            icpTransformFilter.SetTransform(icp)
+            icpTransformFilter.Update()
+
+            transformedSource = icpTransformFilter.GetOutput()
+            for i in range(transformedSource.GetNumberOfPoints()):
+                p = [0, 0, 0]
+                transformedSource.GetPoint(i, p)
+                self.transformed_points.append(p)
+                point = vtk.vtkSphereSource()
+                point.SetCenter(p)
+                point.SetRadius(3)
+                point.SetPhiResolution(3)
+                point.SetThetaResolution(3)
+                mapper = vtk.vtkPolyDataMapper()
+                mapper.SetInputConnection(point.GetOutputPort())
+                actor = vtk.vtkActor()
+                actor.SetMapper(mapper)
+                actor.GetProperty().SetColor((0, 1, 0))
+                self.ren.AddActor(actor)
+            progressPoint = progressPoint + 1 / len(self.point_coord)
+            self.interactor.Render()
+        self.SetProgress(1)
+
+    @staticmethod
+    def vtkmatrix2numpy(matrix):
+        """
+        Copies the elements of a vtkMatrix4x4 into a numpy array.
+        param matrix: The matrix to be copied into an array.
+        type matrix: vtk.vtkMatrix4x4
+        :rtype: numpy.ndarray
+        """
+        m = np.ones((4, 4))
+        for i in range(4):
+            for j in range(4):
+                m[i, j] = matrix.GetElement(i, j)
+        return m
 
 
 class MyApp(wx.App):
