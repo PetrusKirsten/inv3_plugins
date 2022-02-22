@@ -49,9 +49,7 @@ class MotorMapGui(wx.Dialog):
         self.txt_sizer = wx.FlexGridSizer(6, 2, 10, 10)
         self.right_trajSizer = wx.BoxSizer(wx.VERTICAL)
         self.surf_sizer = wx.BoxSizer(wx.HORIZONTAL)
-
         self.bottom_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         self.x_ctrl = None
         self.y_ctrl = None
@@ -181,7 +179,16 @@ class MotorMapGui(wx.Dialog):
              (self.pointsdist_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.pointsdist_ctrl, 0)))
         self.left_trajSizer.Add(
             self.txt_sizer, 0,
-            wx.TOP, 30)
+            wx.TOP, 10)
+
+        self.generateButton = wx.Button(
+            self, 4,
+            'Generate trajectory',
+            size=(175, -1))
+        self.generateButton.Enable(False)
+        self.left_trajSizer.Add(
+            self.generateButton, 0,
+            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 10)
 
         combo_surface_name = wx.ComboBox(self, -1, size=(150, -1),
                                          style=wx.CB_DROPDOWN | wx.CB_READONLY)
@@ -216,24 +223,12 @@ class MotorMapGui(wx.Dialog):
             self.left_trajSizer, 0,
             wx.ALL, 10)
 
-        self.generateButton = wx.Button(
-            self, 4,
-            'Generate trajectory',
-            size=(175, -1))
-        self.generateButton.Enable(False)
-        self.buttons_sizer.Add(
-            self.generateButton, 0,
-            wx.ALIGN_CENTER_HORIZONTAL | wx.RIGHT, 5)
-
         init_surface = 0
         combo_surface_name.SetSelection(init_surface)
 
         self.bottom_sizer.Add(
-            self.buttons_sizer, 0,
-            wx.ALIGN_CENTER_HORIZONTAL)
-        self.bottom_sizer.Add(
             self.progress, 0,
-            wx.EXPAND | wx.TOP | wx.BOTTOM, 5)
+            wx.EXPAND | wx.ALL, 10)
 
         self.mainTraj_sizer.Add(
             self.top_sizer, 0)
@@ -329,16 +324,22 @@ class MotorMapGui(wx.Dialog):
         spiralTMS.info(data)
 
         print('Adding markers')
+        self.SetProgress(0.1)
         for index in range(len(self.x_marker)):
             current_coord = [float(self.x_marker[index]),
                              -float(self.y_marker[index]),
                              float(self.z_ctrl.GetValue())]
             self.ICP(current_coord)
-            self.point_coord.append(current_coord)
             self.SetProgress(index / len(self.x_marker))
         self.collect_points.SetValue(str(len(self.x_marker)))
         self.interactor.Render()
         self.SetProgress(1)
+
+        # for i in range(len(point_coord)):
+        #     img_coord = point_coord[i][0],-point_coord[i][1],point_coord[i][2], 0, 0, 0
+        #     transf_coord = transformed_points[i][0],-transformed_points[i][1],transformed_points[i][2], 0, 0, 0
+        #     Publisher.sendMessage('Create marker', coord=img_coord, marker_id=None, colour=(1,0,0))
+        #     Publisher.sendMessage('Create marker', coord=transf_coord, marker_id=None, colour=(0,0,1))
 
     def OnSelCom(self, evt):  # Select the serial port to connect the EMG
         self.portIndex = evt.GetSelection()
@@ -384,7 +385,6 @@ class MotorMapGui(wx.Dialog):
             print('Select an available serial port')
 
     def ICP(self, coord):
-        self.SetProgress(0.1)
         sourcePoints = np.array(coord)
         sourcePoints_vtk = vtk.vtkPoints()
         for i in range(len(sourcePoints)):
@@ -404,8 +404,6 @@ class MotorMapGui(wx.Dialog):
         icp.Update()
 
         self.m_icp = self.vtkmatrix2numpy(icp.GetMatrix())
-        # print(f'\n coord: {coord}\n'
-        #       f'\n m_icp:{self.m_icp}\n')
 
         icpTransformFilter = vtk.vtkTransformPolyDataFilter()
         icpTransformFilter.SetInputData(source)
@@ -429,6 +427,11 @@ class MotorMapGui(wx.Dialog):
             actor.GetProperty().SetColor((1, 0, 0))
             self.ren.AddActor(actor)
             self.interactor.Render()
+
+        # print(f'\n coord: {coord}\n'
+        #       f'\n m_icp:{self.m_icp}\n'
+        #       f'\n transf_points: {self.transformed_points} \n'
+        #       f'{len(self.transformed_points)}')
 
     @staticmethod
     def vtkmatrix2numpy(matrix):
