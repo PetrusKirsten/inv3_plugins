@@ -253,7 +253,6 @@ class MotorMapGui(wx.Dialog):
     def LoadActor(self):
         """
         Load the selected actor from the project (self.surface) into the scene
-
         """
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInputData(self.surface)
@@ -286,7 +285,6 @@ class MotorMapGui(wx.Dialog):
     def RemoveActor(self):
         """
         Remove the actors from the scene
-
         """
         self.ren.RemoveAllViewProps()
         self.point_coord = []
@@ -468,7 +466,6 @@ class MotorMapGui(wx.Dialog):
 
         Args:
             matrix: vtk type matrix
-
         """
         m = np.ones((4, 4))
         for i in range(4):
