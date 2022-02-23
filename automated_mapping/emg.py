@@ -17,11 +17,13 @@ global staticTrigger
 
 
 def serial_ports():
-    """ Lists serial port names
-        :raises EnvironmentError:
-            On unsupported or unknown platforms
-        :returns:
-            A list of the serial ports available on the system
+    """
+    List serial port names
+
+    Returns:
+        object: A list of the serial ports available on the system
+    Raises:
+        EnviromentError: On unsupported or unknown platforms
     """
     if sys.platform.startswith('win'):
         ports = ['COM%s' % (i + 1) for i in range(256)]
@@ -45,6 +47,15 @@ def serial_ports():
 
 
 def save_static(x, y, saveLocation):
+    """
+    Save last triggered estimulation plot
+
+    Args:
+        x: time values
+        y: signal amplitude values
+        saveLocation: local path to save the files
+
+    """
     from datetime import datetime
     plt.style.use('dark_background')
     plt.xlabel('Time [s]')
@@ -72,6 +83,16 @@ class Plotter:
             rawSignal=False,
             showTrigger=False
     ):
+        """
+        Read estimulation data in csv and plot in quasi-real time
+
+        Args:
+            winSize: size of showing plot
+            savePlot: flag to save or not the last triggered estimulation
+            saveLocation: local path to save the plot
+            rawSignal: flag to show the raw signal data
+            showTrigger: flag to show the trigger plot
+        """
         global staticTrigger
         staticTrigger = False
         self.savePlot = savePlot
@@ -138,6 +159,9 @@ class Plotter:
         QtGui.QApplication.instance().exec_()
 
     def update(self):
+        """
+        Update the data in plot
+        """
         global staticTrigger
         data = read_csv('data_show.csv')
         time = Series.tolist(data['time [ms]'])
@@ -170,6 +194,13 @@ class Plotter:
 
 class EmgThread(threading.Thread):
     def __init__(self, port, winSize=500):
+        """
+        Read and store the emg signals to a .csv fil
+
+        Args:
+            port: serial port to connect with emg/arduino
+            winSize: size of showing plot
+        """
         threading.Thread.__init__(self)
         self.value = ()
         self.tmsFlag = False
@@ -198,6 +229,9 @@ class EmgThread(threading.Thread):
             self.csv_writer.writeheader()
 
     def trigger(self):
+        """
+        Send a square signal to arduino to locate estimulations
+        """
         global staticTrigger
         if kb.is_pressed('e'):
             if self.tmsFlag is False:
@@ -210,6 +244,9 @@ class EmgThread(threading.Thread):
             self.tmsFlag = False
 
     def readsignal(self):
+        """
+        Read the serial signals
+        """
         if self.serialPort is None:
             pass
         elif self.serialPort.readline():
@@ -220,6 +257,9 @@ class EmgThread(threading.Thread):
                 pass
 
     def calibsignal(self):
+        """
+        Read the firsts serial signals
+        """
         offsetMean = np.mean(self.rawValues)
         line = self.serialPort.readline()
         if line:
@@ -231,6 +271,11 @@ class EmgThread(threading.Thread):
                 self.calValues = self.rawValues - offsetMean
 
     def filtering(self):
+        """
+        Filter the data
+
+        Returns: an array with filtered values
+        """
         firstFilter, _ = signal.lfilter(
             self.b, self.a,
             self.calValues,
@@ -245,6 +290,9 @@ class EmgThread(threading.Thread):
         return plotFilter
 
     def truncate(self):
+        """
+        Truncate the data in csv file
+        """
         with open('data_show.csv', 'r+') as self.csv_file:
             self.csv_file.truncate(0)
         with open('data_show.csv', 'w') as self.csv_file:
@@ -252,6 +300,13 @@ class EmgThread(threading.Thread):
             self.csv_writer.writeheader()
 
     def writer(self, truncate: bool, filtered):
+        """
+        Config and write the reading signals in csv file
+
+        Args:
+            truncate: flag to truncate data
+            filtered: filtered data
+        """
         if not truncate:
             with open('data_all.csv', 'a') as self.csv_file:
                 self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=self.fieldnames)
@@ -276,6 +331,9 @@ class EmgThread(threading.Thread):
             print(TypeError)
 
     def run(self):
+        """
+        Run the reading as a thread class
+        """
         while np.size(self.rawValues) < self.winSize:
             if self.serialPort.inWaiting() > 0:
                 EmgThread.readsignal(self)

@@ -44,6 +44,7 @@ class MotorMapGui(wx.Dialog):
         self.mainTraj_sizer = wx.StaticBoxSizer(
             wx.VERTICAL, self,
             'Robotic coil trajectory')
+
         self.top_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.left_trajSizer = wx.BoxSizer(wx.VERTICAL)
         self.txt_sizer = wx.FlexGridSizer(6, 2, 10, 10)
@@ -61,31 +62,26 @@ class MotorMapGui(wx.Dialog):
         self.x_marker = None
         self.y_marker = None
 
-        self.noPath_traj = wx.StaticText(self, -1)
-        self.noPath_traj.SetLabel('   No surface selected yet!   ')
-        self.noPath_traj.SetBackgroundColour('YELLOW')
+        self.txt_surface = wx.StaticText(self, -1, 'Select the surface:')
         self.x_sta = wx.StaticText(self, -1, 'X axis hotspot:')
         self.y_sta = wx.StaticText(self, -1, 'Y axis hotspot:')
         self.z_sta = wx.StaticText(self, -1, 'Z axis hotspot:')
         self.ecc_sta = wx.StaticText(self, -1, 'Ellipse eccentricity:')
         self.radius_sta = wx.StaticText(self, -1, 'Max ellipse radius [mm]:')
         self.pointsdist_sta = wx.StaticText(self, -1, 'Points distance [mm]:')
-        self.txt_surface = wx.StaticText(self, -1, 'Select the surface:')
+        self.noPath_traj = wx.StaticText(self, -1)
+        self.noPath_traj.SetLabel('   No surface selected yet!   ')
+        self.noPath_traj.SetBackgroundColour('YELLOW')
         self.progress = wx.Gauge(self, -1)
 
         # ICP variables
-        self.m_icp = None
-        self.surface = None
-        self.obj_name = None
-        self.polydata = None
         self.obj_actor = None
-        self.prev_error = None
-        self.final_error = None
-        self.initial_focus = None
-        self.collect_points = None
+        self.polydata = None
+        self.surface = None
         self.combo_surface_name = None
+        self.collect_points = None
+        self.m_icp = None
 
-        self.obj_ref_id = 2
         self.staticballs = []
         self.point_coord = []
         self.transformed_points = []
@@ -98,7 +94,7 @@ class MotorMapGui(wx.Dialog):
 
         self.init_gui()
 
-    def EmgVisGui(self):  # EMG visualization GUI
+    def EmgVisGui(self):
         self.combobox_plot.Add(
             wx.StaticText(
                 self, -1,
@@ -158,7 +154,7 @@ class MotorMapGui(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnCancel, id=2)
         self.Bind(wx.EVT_BUTTON, self.OnRun, id=3)
 
-    def CoilTrajGui(self):  # Robot coil trajectory GUI
+    def CoilTrajGui(self):
         self.left_trajSizer.Add(
             self.noPath_traj, 0,
             wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 10)
@@ -179,7 +175,7 @@ class MotorMapGui(wx.Dialog):
              (self.pointsdist_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.pointsdist_ctrl, 0)))
         self.left_trajSizer.Add(
             self.txt_sizer, 0,
-            wx.TOP, 10)
+            wx.ALIGN_CENTER_VERTICAL | wx.TOP, 10)
 
         self.generateButton = wx.Button(
             self, 4,
@@ -256,7 +252,7 @@ class MotorMapGui(wx.Dialog):
     def LoadActor(self):
         """
         Load the selected actor from the project (self.surface) into the scene
-        :return:
+
         """
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInputData(self.surface)
@@ -287,6 +283,10 @@ class MotorMapGui(wx.Dialog):
         self.interactor.Render()
 
     def RemoveActor(self):
+        """
+        Remove the actors from the scene
+
+        """
         self.ren.RemoveAllViewProps()
         self.point_coord = []
         self.transformed_points = []
@@ -296,6 +296,10 @@ class MotorMapGui(wx.Dialog):
         self.interactor.Render()
 
     def OnComboName(self, evt):
+        """
+        Select an available surface
+
+        """
         surface_name = evt.GetString()
         surface_index = evt.GetSelection()
         self.surface = self.proj.surface_dict[surface_index].polydata
@@ -306,10 +310,21 @@ class MotorMapGui(wx.Dialog):
         self.generateButton.Enable(True)
 
     def SetProgress(self, progress):
+        """
+        Set the progress of the gauge
+
+        Args:
+            progress: progress percentage
+
+        """
         self.progress.SetValue(progress * 100)
         self.interactor.Render()
 
-    def OnGen2d(self, evt):  # Generate the 2D ellipse trajectory
+    def OnGen2d(self, evt):
+        """
+        Generate the 2D ellipse trajectory
+
+        """
         self.RemoveActor()
         self.LoadActor()
 
@@ -341,11 +356,19 @@ class MotorMapGui(wx.Dialog):
         #     Publisher.sendMessage('Create marker', coord=img_coord, marker_id=None, colour=(1,0,0))
         #     Publisher.sendMessage('Create marker', coord=transf_coord, marker_id=None, colour=(0,0,1))
 
-    def OnSelCom(self, evt):  # Select the serial port to connect the EMG
+    def OnSelCom(self, evt):
+        """
+         Select the serial port to connect the EMG
+
+        """
         self.portIndex = evt.GetSelection()
         self.runButton.Enable(True)
 
-    def OnLocal(self, evt):  # Select the destination path to save de trig. est. plots
+    def OnLocal(self, evt):
+        """
+         Select the destination path to save de trig. est. plots
+
+        """
         with wx.FileDialog(self, 'Save EMG plots',
                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
             if fileDialog.ShowModal() == wx.ID_CANCEL:
@@ -353,7 +376,11 @@ class MotorMapGui(wx.Dialog):
             self.location = fileDialog.GetPath()
             print(f'saving plot estimulations as {self.location}')
 
-    def OnSavePlot(self, evt):  # To save the triggered estimulation plots
+    def OnSavePlot(self, evt):
+        """
+        To save the triggered estimulation plots
+
+        """
         if self.saveplot_check.GetValue():
             self.localButton.Enable(True)
             self.savePlot = True
@@ -361,11 +388,19 @@ class MotorMapGui(wx.Dialog):
             self.localButton.Enable(False)
             self.savePlot = False
 
-    def OnCancel(self, evt):  # Close dialog
+    def OnCancel(self, evt):
+        """
+        Close dialog
+
+        """
         print('Closing automated motor maping dialog')
         self.Close(True)
 
-    def OnRun(self, evt):  # Run de quasi-realtime emg visualization
+    def OnRun(self, evt):
+        """
+        Run de quasi-realtime emg visualization dialog
+
+        """
         print('Run realtime EMG plot...')
         try:
             serialPort = serial.Serial(
@@ -385,6 +420,13 @@ class MotorMapGui(wx.Dialog):
             print('Select an available serial port')
 
     def ICP(self, coord):
+        """
+        Apply ICP transforms to fit the espiral points to the surface
+
+        Args:
+            coord: raw coordinates to apply ICP
+
+        """
         sourcePoints = np.array(coord)
         sourcePoints_vtk = vtk.vtkPoints()
         for i in range(len(sourcePoints)):
@@ -438,8 +480,10 @@ class MotorMapGui(wx.Dialog):
         """
         Copies the elements of a vtkMatrix4x4 into a numpy array.
         param matrix: The matrix to be copied into an array.
-        type matrix: vtk.vtkMatrix4x4
-        :rtype: numpy.ndarray
+
+        Args:
+            matrix: vtk type matrix
+
         """
         m = np.ones((4, 4))
         for i in range(4):
