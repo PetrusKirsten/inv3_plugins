@@ -7,6 +7,7 @@ import numpy as np
 from . import spiralTMS
 import invesalius.project as prj
 from serial import SerialException
+from pubsub import pub as Publisher
 import invesalius.constants as const
 import invesalius.data.vtk_utils as vtku
 from vtkmodules.wx.wxVTKRenderWindowInteractor import wxVTKRenderWindowInteractor
@@ -84,7 +85,7 @@ class MotorMapGui(wx.Dialog):
 
         self.staticballs = []
         self.point_coord = []
-        self.transformed_points = []
+        self.icp_points = []
         self.obj_orients = np.full([5, 3], np.nan)
         self.obj_fiducials = np.full([5, 3], np.nan)
 
@@ -289,7 +290,7 @@ class MotorMapGui(wx.Dialog):
         """
         self.ren.RemoveAllViewProps()
         self.point_coord = []
-        self.transformed_points = []
+        self.icp_points = []
         self.m_icp = None
         self.SetProgress(0)
         self.ren.ResetCamera()
@@ -298,7 +299,6 @@ class MotorMapGui(wx.Dialog):
     def OnComboName(self, evt):
         """
         Select an available surface
-
         """
         surface_name = evt.GetString()
         surface_index = evt.GetSelection()
@@ -315,7 +315,6 @@ class MotorMapGui(wx.Dialog):
 
         Args:
             progress: progress percentage
-
         """
         self.progress.SetValue(progress * 100)
         self.interactor.Render()
@@ -323,7 +322,6 @@ class MotorMapGui(wx.Dialog):
     def OnGen2d(self, evt):
         """
         Generate the 2D ellipse trajectory
-
         """
         self.RemoveActor()
         self.LoadActor()
@@ -350,16 +348,13 @@ class MotorMapGui(wx.Dialog):
         self.interactor.Render()
         self.SetProgress(1)
 
-        # for i in range(len(point_coord)):
-        #     img_coord = point_coord[i][0],-point_coord[i][1],point_coord[i][2], 0, 0, 0
-        #     transf_coord = transformed_points[i][0],-transformed_points[i][1],transformed_points[i][2], 0, 0, 0
-        #     Publisher.sendMessage('Create marker', coord=img_coord, marker_id=None, colour=(1,0,0))
-        #     Publisher.sendMessage('Create marker', coord=transf_coord, marker_id=None, colour=(0,0,1))
+        for i in range(len(self.icp_points)):
+            img_coord = self.icp_points[i][0], -self.icp_points[i][1], self.icp_points[i][2], None, None, None
+            Publisher.sendMessage('Create marker', coord=img_coord, colour=(1, 1, 0))
 
     def OnSelCom(self, evt):
         """
          Select the serial port to connect the EMG
-
         """
         self.portIndex = evt.GetSelection()
         self.runButton.Enable(True)
@@ -367,7 +362,6 @@ class MotorMapGui(wx.Dialog):
     def OnLocal(self, evt):
         """
          Select the destination path to save de trig. est. plots
-
         """
         with wx.FileDialog(self, 'Save EMG plots',
                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
@@ -379,7 +373,6 @@ class MotorMapGui(wx.Dialog):
     def OnSavePlot(self, evt):
         """
         To save the triggered estimulation plots
-
         """
         if self.saveplot_check.GetValue():
             self.localButton.Enable(True)
@@ -391,7 +384,6 @@ class MotorMapGui(wx.Dialog):
     def OnCancel(self, evt):
         """
         Close dialog
-
         """
         print('Closing automated motor maping dialog')
         self.Close(True)
@@ -399,7 +391,6 @@ class MotorMapGui(wx.Dialog):
     def OnRun(self, evt):
         """
         Run de quasi-realtime emg visualization dialog
-
         """
         print('Run realtime EMG plot...')
         try:
@@ -425,7 +416,6 @@ class MotorMapGui(wx.Dialog):
 
         Args:
             coord: raw coordinates to apply ICP
-
         """
         sourcePoints = np.array(coord)
         sourcePoints_vtk = vtk.vtkPoints()
@@ -438,10 +428,10 @@ class MotorMapGui(wx.Dialog):
         icp.SetSource(source)
         icp.SetTarget(self.surface)
 
-        # icp.GetLandmarkTransform().SetModeToRigidBody()
-        icp.GetLandmarkTransform().SetModeToAffine()
+        icp.GetLandmarkTransform().SetModeToRigidBody()
+        # icp.GetLandmarkTransform().SetModeToAffine()
         icp.DebugOn()
-        icp.SetMaximumNumberOfIterations(100)
+        icp.SetMaximumNumberOfIterations(250)
         icp.Modified()
         icp.Update()
 
@@ -456,7 +446,7 @@ class MotorMapGui(wx.Dialog):
         for i in range(transformedSource.GetNumberOfPoints()):
             p = [0, 0, 0]
             transformedSource.GetPoint(i, p)
-            self.transformed_points.append(p)
+            self.icp_points.append(p)
             point = vtk.vtkSphereSource()
             point.SetCenter(p)
             point.SetRadius(2)
@@ -466,14 +456,9 @@ class MotorMapGui(wx.Dialog):
             mapper.SetInputConnection(point.GetOutputPort())
             actor = vtk.vtkActor()
             actor.SetMapper(mapper)
-            actor.GetProperty().SetColor((1, 0, 0))
+            actor.GetProperty().SetColor((1, 1, 0))
             self.ren.AddActor(actor)
             self.interactor.Render()
-
-        # print(f'\n coord: {coord}\n'
-        #       f'\n m_icp:{self.m_icp}\n'
-        #       f'\n transf_points: {self.transformed_points} \n'
-        #       f'{len(self.transformed_points)}')
 
     @staticmethod
     def vtkmatrix2numpy(matrix):
