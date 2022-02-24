@@ -10,6 +10,7 @@ from serial import SerialException
 from pubsub import pub as Publisher
 import invesalius.constants as const
 import invesalius.data.vtk_utils as vtku
+from invesalius.gui import task_navigator
 from vtkmodules.wx.wxVTKRenderWindowInteractor import wxVTKRenderWindowInteractor
 
 
@@ -48,7 +49,7 @@ class MotorMapGui(wx.Dialog):
 
         self.top_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.left_trajSizer = wx.BoxSizer(wx.VERTICAL)
-        self.txt_sizer = wx.FlexGridSizer(6, 2, 10, 10)
+        self.txt_sizer = wx.FlexGridSizer(6, 2, 7, 10)
         self.right_trajSizer = wx.BoxSizer(wx.VERTICAL)
         self.surf_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.bottom_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -60,6 +61,7 @@ class MotorMapGui(wx.Dialog):
         self.radius_ctrl = None
         self.pointsdist_ctrl = None
         self.generateButton = None
+        self.doneButton = None
         self.x_marker = None
         self.y_marker = None
 
@@ -70,9 +72,6 @@ class MotorMapGui(wx.Dialog):
         self.ecc_sta = wx.StaticText(self, -1, 'Ellipse eccentricity:')
         self.radius_sta = wx.StaticText(self, -1, 'Max ellipse radius [mm]:')
         self.pointsdist_sta = wx.StaticText(self, -1, 'Points distance [mm]:')
-        self.noPath_traj = wx.StaticText(self, -1)
-        self.noPath_traj.SetLabel('   No surface selected yet!   ')
-        self.noPath_traj.SetBackgroundColour('YELLOW')
         self.progress = wx.Gauge(self, -1)
 
         # ICP variables
@@ -156,10 +155,6 @@ class MotorMapGui(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.OnRun, id=3)
 
     def CoilTrajGui(self):
-        self.left_trajSizer.Add(
-            self.noPath_traj, 0,
-            wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 10)
-
         ctrl_size = (60, -1)
         self.x_ctrl = wx.TextCtrl(self, -1, '155.99', size=ctrl_size)
         self.y_ctrl = wx.TextCtrl(self, -1, '112.13', size=ctrl_size)
@@ -176,7 +171,7 @@ class MotorMapGui(wx.Dialog):
              (self.pointsdist_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.pointsdist_ctrl, 0)))
         self.left_trajSizer.Add(
             self.txt_sizer, 0,
-            wx.ALIGN_CENTER_VERTICAL | wx.TOP, 10)
+            wx.ALIGN_CENTER_VERTICAL | wx.TOP, 20)
 
         self.generateButton = wx.Button(
             self, 4,
@@ -185,7 +180,15 @@ class MotorMapGui(wx.Dialog):
         self.generateButton.Enable(False)
         self.left_trajSizer.Add(
             self.generateButton, 0,
-            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 10)
+            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
+
+        self.doneButton = wx.Button(
+            self, 5,
+            'Done')
+        self.doneButton.Enable(False)
+        self.left_trajSizer.Add(
+            self.doneButton, 0,
+            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
 
         combo_surface_name = wx.ComboBox(self, -1, size=(150, -1),
                                          style=wx.CB_DROPDOWN | wx.CB_READONLY)
@@ -204,8 +207,7 @@ class MotorMapGui(wx.Dialog):
             wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_CENTER_HORIZONTAL | wx.LEFT, 5)
         self.right_trajSizer.Add(
             self.surf_sizer, 0,
-            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP | wx.BOTTOM, 5
-        )
+            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP | wx.BOTTOM, 5)
 
         self.interactor.Enable(1)
         self.interactor.GetRenderWindow().AddRenderer(self.ren)
@@ -234,6 +236,7 @@ class MotorMapGui(wx.Dialog):
             wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL)
 
         self.Bind(wx.EVT_BUTTON, self.OnGen2d, id=4)
+        self.Bind(wx.EVT_BUTTON, self.OnDoneTraj, id=5)
 
     def init_gui(self):
         self.EmgVisGui()
@@ -304,7 +307,6 @@ class MotorMapGui(wx.Dialog):
         if self.obj_actor:
             self.RemoveActor()
         self.LoadActor()
-        self.noPath_traj.Destroy()
         self.generateButton.Enable(True)
 
     def SetProgress(self, progress):
@@ -344,11 +346,17 @@ class MotorMapGui(wx.Dialog):
             self.SetProgress(index / len(self.x_marker))
         self.collect_points.SetValue(str(len(self.x_marker)))
         self.interactor.Render()
+        self.doneButton.Enable(True)
         self.SetProgress(1)
 
+    def OnDoneTraj(self, evt):
+        """
+        Send the generated espiral markers to InVesalius
+        """
         for i in range(len(self.icp_points)):
             img_coord = self.icp_points[i][0], -self.icp_points[i][1], self.icp_points[i][2], None, None, None
             Publisher.sendMessage('Create marker', coord=img_coord, colour=(1, 1, 0))
+            Publisher.sendMessage('Update robot target', robot_tracker_flag=True, target_index=i)
 
     def OnSelCom(self, evt):
         """

@@ -54,7 +54,6 @@ def save_static(x, y, saveLocation):
         x: time values
         y: signal amplitude values
         saveLocation: local path to save the files
-
     """
     from datetime import datetime
     plt.style.use('dark_background')
