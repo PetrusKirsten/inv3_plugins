@@ -1,4 +1,4 @@
-import wx
+import wx  # pandas only works with wxPython 4.0.7
 import vtk
 import sys
 import serial
@@ -34,7 +34,7 @@ class MotorMapGui(wx.Dialog):
         self.right_emgSizer = wx.BoxSizer(wx.HORIZONTAL)
         self.buttons_plot = wx.BoxSizer(wx.VERTICAL)
 
-        self.saveplot_check = wx.CheckBox(self, -1, 'Save the estimulation plot')
+        self.saveplot_check = wx.CheckBox(self, -1, 'Save the motor evoked potential')
         self.ports = emg.serial_ports()
         self.savePlot = None
         self.location = None
