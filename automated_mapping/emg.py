@@ -80,8 +80,7 @@ class Plotter:
             savePlot=False,
             saveLocation=None,
             rawSignal=False,
-            showTrigger=False
-    ):
+            showTrigger=False):
         """
         Read estimulation data in csv and plot in quasi-real time
 
@@ -106,7 +105,7 @@ class Plotter:
         # PyQtGraph config
         self.app = QtGui.QApplication([])
         self.win = pg.GraphicsWindow()
-        self.win.resize(1200, 600)
+        self.win.resize(600, 800)
         self.win.setWindowIcon(QtGui.QIcon('emg-icon.png'))
         self.win.setWindowTitle('EMG')
         self.win.setBackground((18, 18, 18))

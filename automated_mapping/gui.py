@@ -10,7 +10,6 @@ from serial import SerialException
 from pubsub import pub as Publisher
 import invesalius.constants as const
 import invesalius.data.vtk_utils as vtku
-from invesalius.gui import task_navigator
 from vtkmodules.wx.wxVTKRenderWindowInteractor import wxVTKRenderWindowInteractor
 
 
@@ -62,6 +61,8 @@ class MotorMapGui(wx.Dialog):
         self.pointsdist_ctrl = None
         self.generateButton = None
         self.doneButton = None
+        self.sendButton = None
+        self.sendIndex = 0
         self.x_marker = None
         self.y_marker = None
 
@@ -171,7 +172,7 @@ class MotorMapGui(wx.Dialog):
              (self.pointsdist_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.pointsdist_ctrl, 0)))
         self.left_trajSizer.Add(
             self.txt_sizer, 0,
-            wx.ALIGN_CENTER_VERTICAL | wx.TOP, 20)
+            wx.ALIGN_CENTER_VERTICAL)
 
         self.generateButton = wx.Button(
             self, 4,
@@ -184,10 +185,18 @@ class MotorMapGui(wx.Dialog):
 
         self.doneButton = wx.Button(
             self, 5,
-            'Done')
+            'Send to InVesalius')
         self.doneButton.Enable(False)
         self.left_trajSizer.Add(
             self.doneButton, 0,
+            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
+
+        self.sendButton = wx.Button(
+            self, 6,
+            'Send to robot')
+        self.sendButton.Enable(False)
+        self.left_trajSizer.Add(
+            self.sendButton, 0,
             wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
 
         combo_surface_name = wx.ComboBox(self, -1, size=(150, -1),
@@ -237,6 +246,7 @@ class MotorMapGui(wx.Dialog):
 
         self.Bind(wx.EVT_BUTTON, self.OnGen2d, id=4)
         self.Bind(wx.EVT_BUTTON, self.OnDoneTraj, id=5)
+        self.Bind(wx.EVT_BUTTON, self.OnSend, id=6)
 
     def init_gui(self):
         self.EmgVisGui()
@@ -356,7 +366,22 @@ class MotorMapGui(wx.Dialog):
         for i in range(len(self.icp_points)):
             img_coord = self.icp_points[i][0], -self.icp_points[i][1], self.icp_points[i][2], None, None, None
             Publisher.sendMessage('Create marker', coord=img_coord, colour=(1, 1, 0))
-            Publisher.sendMessage('Update robot target', robot_tracker_flag=True, target_index=i)
+        self.SetProgress(0)
+        self.sendIndex = 0
+        self.sendButton.Enable(True)
+
+    def OnSend(self, evt):
+        """
+        Send individually each coordinate to robot system
+        """
+        Publisher.sendMessage('Update robot target', robot_tracker_flag=True, target_index=self.sendIndex)
+        print(f'Sent #{self.sendIndex + 1} coordinate')
+        print((self.sendIndex + 1) / (len(self.icp_points) / 3))
+        self.SetProgress((self.sendIndex + 1) / (len(self.icp_points) / 3))
+        self.sendIndex += 1
+        if self.sendIndex == len(self.icp_points) / 3:
+            print('All coordinates sent')
+            self.sendButton.Enable(False)
 
     def OnSelCom(self, evt):
         """
