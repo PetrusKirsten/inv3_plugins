@@ -1,3 +1,4 @@
+import scipy.ndimage
 import wx  # pandas only works with wxPython 4.0.7
 import vtk
 import sys
@@ -438,8 +439,27 @@ class MotorMapGui(wx.Dialog):
         source = vtk.vtkPolyData()
         source.SetPoints(sourcePoints_vtk)
 
+
+        transform = vtk.vtkTransform()
+        transform.Translate(
+            float(self.x_ctrl.GetValue()),
+            -float(self.y_ctrl.GetValue()),
+            float(self.z_ctrl.GetValue()))
+        transform.RotateY(45)
+        transform.Translate(
+            -float(self.x_ctrl.GetValue()),
+            float(self.y_ctrl.GetValue()),
+            -float(self.z_ctrl.GetValue()))
+
+        transform_filt = vtk.vtkTransformPolyDataFilter()
+        transform_filt.SetTransform(transform)
+        transform_filt.SetInputData(source)
+        transform_filt.Update()
+
+        source_points = transform_filt.GetOutput()
+
         icp = vtk.vtkIterativeClosestPointTransform()
-        icp.SetSource(source)
+        icp.SetSource(source_points)
         icp.SetTarget(self.surface)
 
         icp.GetLandmarkTransform().SetModeToRigidBody()
@@ -452,13 +472,13 @@ class MotorMapGui(wx.Dialog):
         self.m_icp = self.vtkmatrix2numpy(icp.GetMatrix())
 
         icpTransformFilter = vtk.vtkTransformPolyDataFilter()
-        icpTransformFilter.SetInputData(source)
+        icpTransformFilter.SetInputData(source_points)
         icpTransformFilter.SetTransform(icp)
         icpTransformFilter.Update()
 
         transformedSource = icpTransformFilter.GetOutput()
-        # for i in range(transformedSource.GetNumberOfPoints()):
         p = [0, 0, 0]
+        # transformedSource.GetPoint(0, p)
         transformedSource.GetPoint(0, p)
         point = vtk.vtkSphereSource()
         point.SetCenter(p)
@@ -467,6 +487,7 @@ class MotorMapGui(wx.Dialog):
         point.SetThetaResolution(3)
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInputConnection(point.GetOutputPort())
+        # mapper.SetInputConnection(source_points.GetOutput())
         actor = vtk.vtkActor()
         actor.SetMapper(mapper)
         actor.GetProperty().SetColor((0, 0, 1))
@@ -477,6 +498,20 @@ class MotorMapGui(wx.Dialog):
         self.icp_points.append(p)
 
     def spiralICP(self):
+        # new_spiral = []
+        # for index in range(len(self.x_marker)):
+        #     current_coord = [float(self.x_marker[index]),
+        #                      -float(self.y_marker[index]),
+        #                      float(self.z_ctrl.GetValue())]
+        #
+        #     new_spiral.append(current_coord)
+        #
+        # print('\n PLANA: ', new_spiral, '\n')
+        #
+        # rotate_spiral = scipy.ndimage.rotate(new_spiral, 45)
+        #
+        # print(rotate_spiral)
+
         for index in range(len(self.x_marker)):
             current_coord = [float(self.x_marker[index]),
                              -float(self.y_marker[index]),
