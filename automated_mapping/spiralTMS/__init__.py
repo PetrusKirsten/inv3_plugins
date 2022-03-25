@@ -3,7 +3,6 @@ import random
 import numpy as np
 from sys import exit
 import xlsxwriter as xlsx
-from datetime import datetime
 from matplotlib import pyplot as plt
 
 
@@ -44,9 +43,11 @@ def ellipse_path(
             else:
                 x2 = x_marker_values[-1]
                 y2 = y_marker_values[-1]
+
             x = param * np.cos(angle + phi) + x_hotspot
-            y = b * param * np.sin(angle + phi) + y_hotspot
             x_values = np.append(x_values, x)
+
+            y = b * param * np.sin(angle + phi) + y_hotspot
             y_values = np.append(y_values, y)
 
             radius = np.sqrt((x - x_hotspot) ** 2 + (y - y_hotspot) ** 2)
@@ -69,27 +70,6 @@ def ellipse_path(
             angle += delta_angle
 
         data_array = [radius, distance, delta, counter]
-
-        # z_marker_values = np.full_like(x_marker_values, z_hotspot)
-        # zero_values = np.full_like(x_marker_values, 0.000)
-        # one_values = np.full_like(x_marker_values, 1.000)
-        # two_values = np.full_like(x_marker_values, 2.000)
-
-        # export_array = np.transpose(np.array(
-        #     [x_marker_values,
-        #      y_marker_values,
-        #      z_marker_values,
-        #      zero_values,
-        #      zero_values,
-        #      zero_values,
-        #      one_values,
-        #      one_values,
-        #      zero_values,
-        #      two_values
-        #      ]
-        # ))
-        # file_name = datetime.now().strftime('%d%m%Y%H%M')
-        # np.savetxt(f'stim-coord_{file_name}.mks', export_array, fmt='%s')
 
         return x_marker_values, y_marker_values, x_values, y_values, data_array
 

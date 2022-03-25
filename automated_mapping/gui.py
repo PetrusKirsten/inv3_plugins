@@ -9,13 +9,8 @@ from . import emg
 from . import spiralTMS
 
 from pubsub import pub as Publisher
-<<<<<<< Updated upstream
 from vtkmodules.wx.wxVTKRenderWindowInteractor import wxVTKRenderWindowInteractor
 
-from . import spiralTMS
-
-=======
->>>>>>> Stashed changes
 import invesalius.project as prj
 import invesalius.constants as const
 import invesalius.data.vtk_utils as vtku
@@ -71,7 +66,6 @@ class MotorMapGui(wx.Dialog):
         self.radius_ctrl = None
         self.pointsdist_ctrl = None
         self.generateButton = None
-        self.doneButton = None
         self.sendButton = None
         self.sendIndex = 0
         self.x_marker = None
@@ -194,16 +188,8 @@ class MotorMapGui(wx.Dialog):
             self.generateButton, 0,
             wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
 
-        self.doneButton = wx.Button(
-            self, 5,
-            'Send to InVesalius')
-        self.doneButton.Enable(False)
-        self.left_trajSizer.Add(
-            self.doneButton, 0,
-            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
-
         self.sendButton = wx.Button(
-            self, 6,
+            self, 5,
             'Send to robot')
         self.sendButton.Enable(False)
         self.left_trajSizer.Add(
@@ -256,8 +242,7 @@ class MotorMapGui(wx.Dialog):
             wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL)
 
         self.Bind(wx.EVT_BUTTON, self.OnGen2d, id=4)
-        self.Bind(wx.EVT_BUTTON, self.OnDoneTraj, id=5)
-        self.Bind(wx.EVT_BUTTON, self.OnSend, id=6)
+        self.Bind(wx.EVT_BUTTON, self.OnSend, id=5)
 
     def init_gui(self):
         self.EmgVisGui()
@@ -274,50 +259,6 @@ class MotorMapGui(wx.Dialog):
         self.main_sizer.Fit(self)
         self.Layout()
 
-    def LoadActor(self):
-        """
-        Load the selected actor from the project (self.surface) into the scene
-        """
-        mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputData(self.surface)
-        mapper.ScalarVisibilityOff()
-        # mapper.ImmediateModeRenderingOn()
-
-        obj_actor = vtk.vtkActor()
-        obj_actor.SetMapper(mapper)
-        self.obj_actor = obj_actor
-
-        poses_recorded = vtku.Text()
-        poses_recorded.SetSize(const.TEXT_SIZE_LARGE)
-        poses_recorded.SetPosition((const.X, const.Y))
-        poses_recorded.ShadowOff()
-        poses_recorded.SetValue("Poses recorded: ")
-
-        collect_points = vtku.Text()
-        collect_points.SetSize(const.TEXT_SIZE_LARGE)
-        collect_points.SetPosition((const.X + 0.35, const.Y))
-        collect_points.ShadowOff()
-        collect_points.SetValue("0")
-        self.collect_points = collect_points
-
-        self.ren.AddActor(obj_actor)
-        self.ren.AddActor(poses_recorded.actor)
-        self.ren.AddActor(collect_points.actor)
-        self.ren.ResetCamera()
-        self.interactor.Render()
-
-    def RemoveActor(self):
-        """
-        Remove the actors from the scene
-        """
-        self.ren.RemoveAllViewProps()
-        self.point_coord = []
-        self.icp_points = []
-        self.m_icp = None
-        self.SetProgress(0)
-        self.ren.ResetCamera()
-        self.interactor.Render()
-
     def OnComboName(self, evt):
         """
         Select an available surface
@@ -330,25 +271,17 @@ class MotorMapGui(wx.Dialog):
         self.LoadActor()
         self.generateButton.Enable(True)
 
-    def SetProgress(self, progress):
-        """
-        Set the progress of the gauge
-
-        Args:
-            progress: progress percentage
-        """
-        self.progress.SetValue(progress * 100)
-        self.interactor.Render()
-
     def OnGen2d(self, evt):
         """
         Generate the 2D ellipse trajectory
         """
+        print('Generating coil trajectory')
+        self.SetProgress(0.1)
+
         self.RemoveActor()
         self.LoadActor()
 
-        print('Generating coil trajectory')
-        self.x_marker, self.y_marker, x_path, y_path, data = spiralTMS.ellipse_path(
+        self.x_marker, self.y_marker, _, _, data = spiralTMS.ellipse_path(
             x_hotspot=float(self.x_ctrl.GetValue()),
             y_hotspot=float(self.y_ctrl.GetValue()),
             z_hotspot=float(self.z_ctrl.GetValue()),
@@ -358,50 +291,24 @@ class MotorMapGui(wx.Dialog):
         spiralTMS.info(data)
 
         print('Adding markers')
-        self.SetProgress(0.1)
-        for index in range(len(self.x_marker)):
-            current_coord = [float(self.x_marker[index]),
-                             -float(self.y_marker[index]),
-                             float(self.z_ctrl.GetValue())]
-            self.ICP(current_coord)
-            self.SetProgress(index / len(self.x_marker))
+        self.spiralICP()
+
         self.collect_points.SetValue(str(len(self.x_marker)))
         self.interactor.Render()
-<<<<<<< Updated upstream
-        self.doneButton.Enable(True)
-        self.SetProgress(1)
-
-    def OnDoneTraj(self, evt):
-        """
-        Send the generated spiral markers to InVesalius
-        """
-        # for i in range(int(len(self.icp_points))):
-        #     img_coord = self.icp_points[i][0], -self.icp_points[i][1], self.icp_points[i][2], None, None, None
-        #     Publisher.sendMessage('Create marker', coord=img_coord, colour=(1, 1, 0))
-        self.SetProgress(0)
-        self.sendIndex = 0
-=======
->>>>>>> Stashed changes
         self.sendButton.Enable(True)
+
         self.SetProgress(1)
 
     def OnSend(self, evt):
         """
         Send individually each coordinate to robot system
         """
-        print(navigation.Navigation().m_change)
-        target = dcr.image_to_tracker(navigation.Navigation().m_change, self.icp_points[self.sendIndex], icp.ICP())
+        self.SendTarget()
 
-        Publisher.sendMessage('Update robot target',
-                              robot_tracker_flag=True,
-                              target_index=0, #doesnt matter
-                              target=target.tolist())
-        print('Target:', self.icp_points[self.sendIndex])
-        print(f'Sent #{self.sendIndex + 1} coordinate')
-        print(f'')
         self.SetProgress((self.sendIndex + 1) / (len(self.icp_points)))
+
         self.sendIndex += 1
-        if self.sendIndex == len(self.icp_points):
+        if self.sendIndex >= len(self.icp_points):
             print('All coordinates sent')
             self.sendButton.Enable(False)
 
@@ -463,6 +370,60 @@ class MotorMapGui(wx.Dialog):
         except TypeError:
             print('Select an available serial port')
 
+    def SetProgress(self, progress):
+        """
+        Set the progress of the gauge
+
+        Args:
+            progress: progress percentage
+        """
+        self.progress.SetValue(progress * 100)
+        self.interactor.Render()
+
+    def LoadActor(self):
+        """
+        Load the selected actor from the project (self.surface) into the scene
+        """
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputData(self.surface)
+        mapper.ScalarVisibilityOff()
+        # mapper.ImmediateModeRenderingOn()
+
+        obj_actor = vtk.vtkActor()
+        obj_actor.SetMapper(mapper)
+        self.obj_actor = obj_actor
+
+        poses_recorded = vtku.Text()
+        poses_recorded.SetSize(const.TEXT_SIZE_LARGE)
+        poses_recorded.SetPosition((const.X, const.Y))
+        poses_recorded.ShadowOff()
+        poses_recorded.SetValue('Poses generated: ')
+
+        collect_points = vtku.Text()
+        collect_points.SetSize(const.TEXT_SIZE_LARGE)
+        collect_points.SetPosition((const.X + 0.35, const.Y))
+        collect_points.ShadowOff()
+        collect_points.SetValue('0')
+        self.collect_points = collect_points
+
+        self.ren.AddActor(obj_actor)
+        self.ren.AddActor(poses_recorded.actor)
+        self.ren.AddActor(collect_points.actor)
+        self.ren.ResetCamera()
+        self.interactor.Render()
+
+    def RemoveActor(self):
+        """
+        Remove the actors from the scene
+        """
+        self.ren.RemoveAllViewProps()
+        self.point_coord = []
+        self.icp_points = []
+        self.m_icp = None
+        self.SetProgress(0)
+        self.ren.ResetCamera()
+        self.interactor.Render()
+
     def ICP(self, coord):
         """
         Apply ICP transforms to fit the espiral points to the surface
@@ -514,6 +475,30 @@ class MotorMapGui(wx.Dialog):
 
         p[1] = -p[1]
         self.icp_points.append(p)
+
+    def spiralICP(self):
+        for index in range(len(self.x_marker)):
+            current_coord = [float(self.x_marker[index]),
+                             -float(self.y_marker[index]),
+                             float(self.z_ctrl.GetValue())]
+            self.ICP(current_coord)
+            self.SetProgress(index / len(self.x_marker))
+
+    def SendTarget(self):
+        """
+        Update robot target to the next spiral coordinate
+        """
+        target = dcr.image_to_tracker(
+            navigation.Navigation().m_change,
+            self.icp_points[self.sendIndex],
+            icp.ICP())
+
+        Publisher.sendMessage('Update robot target',
+                              robot_tracker_flag=True,
+                              target_index=0,  # doesnt matter
+                              target=target.tolist())
+        print(f'\n>> Sent #{self.sendIndex + 1} coordinate'
+              f'\n>> Target: {self.icp_points[self.sendIndex]}')
 
     @staticmethod
     def vtkmatrix2numpy(matrix):
