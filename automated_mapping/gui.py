@@ -4,13 +4,18 @@ import sys
 import serial
 from . import emg
 import numpy as np
-from . import spiralTMS
-import invesalius.project as prj
 from serial import SerialException
 from pubsub import pub as Publisher
+from vtkmodules.wx.wxVTKRenderWindowInteractor import wxVTKRenderWindowInteractor
+
+from . import spiralTMS
+
+import invesalius.project as prj
 import invesalius.constants as const
 import invesalius.data.vtk_utils as vtku
-from vtkmodules.wx.wxVTKRenderWindowInteractor import wxVTKRenderWindowInteractor
+import invesalius.data.coregistration as dcr
+from invesalius.navigation import navigation
+from invesalius.navigation import icp
 
 
 class MotorMapGui(wx.Dialog):
@@ -361,11 +366,11 @@ class MotorMapGui(wx.Dialog):
 
     def OnDoneTraj(self, evt):
         """
-        Send the generated espiral markers to InVesalius
+        Send the generated spiral markers to InVesalius
         """
-        for i in range(len(self.icp_points)):
-            img_coord = self.icp_points[i][0], -self.icp_points[i][1], self.icp_points[i][2], None, None, None
-            Publisher.sendMessage('Create marker', coord=img_coord, colour=(1, 1, 0))
+        # for i in range(int(len(self.icp_points))):
+        #     img_coord = self.icp_points[i][0], -self.icp_points[i][1], self.icp_points[i][2], None, None, None
+        #     Publisher.sendMessage('Create marker', coord=img_coord, colour=(1, 1, 0))
         self.SetProgress(0)
         self.sendIndex = 0
         self.sendButton.Enable(True)
@@ -374,12 +379,19 @@ class MotorMapGui(wx.Dialog):
         """
         Send individually each coordinate to robot system
         """
-        Publisher.sendMessage('Update robot target', robot_tracker_flag=True, target_index=self.sendIndex)
+        print(navigation.Navigation().m_change)
+        target = dcr.image_to_tracker(navigation.Navigation().m_change, self.icp_points[self.sendIndex], icp.ICP())
+
+        Publisher.sendMessage('Update robot target',
+                              robot_tracker_flag=True,
+                              target_index=0, #doesnt matter
+                              target=target.tolist())
+        print('Target:', self.icp_points[self.sendIndex])
         print(f'Sent #{self.sendIndex + 1} coordinate')
-        print((self.sendIndex + 1) / (len(self.icp_points) / 3))
-        self.SetProgress((self.sendIndex + 1) / (len(self.icp_points) / 3))
+        print(f'')
+        self.SetProgress((self.sendIndex + 1) / (len(self.icp_points)))
         self.sendIndex += 1
-        if self.sendIndex == len(self.icp_points) / 3:
+        if self.sendIndex == len(self.icp_points):
             print('All coordinates sent')
             self.sendButton.Enable(False)
 
@@ -474,22 +486,24 @@ class MotorMapGui(wx.Dialog):
         icpTransformFilter.Update()
 
         transformedSource = icpTransformFilter.GetOutput()
-        for i in range(transformedSource.GetNumberOfPoints()):
-            p = [0, 0, 0]
-            transformedSource.GetPoint(i, p)
-            self.icp_points.append(p)
-            point = vtk.vtkSphereSource()
-            point.SetCenter(p)
-            point.SetRadius(2)
-            point.SetPhiResolution(3)
-            point.SetThetaResolution(3)
-            mapper = vtk.vtkPolyDataMapper()
-            mapper.SetInputConnection(point.GetOutputPort())
-            actor = vtk.vtkActor()
-            actor.SetMapper(mapper)
-            actor.GetProperty().SetColor((1, 1, 0))
-            self.ren.AddActor(actor)
-            self.interactor.Render()
+        # for i in range(transformedSource.GetNumberOfPoints()):
+        p = [0, 0, 0]
+        transformedSource.GetPoint(0, p)
+        point = vtk.vtkSphereSource()
+        point.SetCenter(p)
+        point.SetRadius(2)
+        point.SetPhiResolution(3)
+        point.SetThetaResolution(3)
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(point.GetOutputPort())
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor((0, 0, 1))
+        self.ren.AddActor(actor)
+        self.interactor.Render()
+
+        p[1] = -p[1]
+        self.icp_points.append(p)
 
     @staticmethod
     def vtkmatrix2numpy(matrix):
