@@ -96,7 +96,7 @@ class Plotter:
         self.savePlot = savePlot
         self.saveLocation = saveLocation
         self.staticSize = 50
-        self.sampFreq = 873
+        self.sampFreq = 1536
         self.staticSignal = []
         self.showTrigger = showTrigger
         self.rawSignal = rawSignal
@@ -112,8 +112,8 @@ class Plotter:
 
         # Emg plot config
         self.emgPlot = self.win.addPlot(colspan=2, title='Electromyography')
-        self.emgPlot.setLabel(axis='left', text='Amplitude Signal [mV]')
-        self.emgPlot.setLabel(axis='bottom', text='Time [s]')
+        self.emgPlot.setLabel(axis='left', text='Amplitude Signal')
+        self.emgPlot.setLabel(axis='bottom', text='Time')
         self.emgPlot.showGrid(x=True, y=True, alpha=0.15)
         # self.emgPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
         self.emgPlot.getAxis('left').setTextPen('w')
@@ -128,8 +128,8 @@ class Plotter:
         # Emg static plot
         self.win.nextRow()
         self.staticPlot = self.win.addPlot(colspan=2, title='Last triggered EMG signal')
-        self.staticPlot.setLabel(axis='left', text='Amplitude Signal [mV]')
-        self.staticPlot.setLabel(axis='bottom', text='Time [s]')
+        self.staticPlot.setLabel(axis='left', text='Amplitude Signal')
+        self.staticPlot.setLabel(axis='bottom', text='Time')
         self.staticPlot.showGrid(x=True, y=True, alpha=0.15)
         self.staticPlot.getAxis('left').setTextPen('w')
         self.staticPlot.getAxis('bottom').setTextPen('w')
@@ -142,7 +142,7 @@ class Plotter:
             self.win.nextRow()
             self.triggerPlot = self.win.addPlot(colspan=2, title='Trigger Signal')
             self.triggerPlot.setLabel(axis='left', text='Amplitude')
-            self.triggerPlot.setLabel(axis='bottom', text='Time [ms]')
+            self.triggerPlot.setLabel(axis='bottom', text='Time')
             self.triggerPlot.showGrid(x=True, y=True, alpha=0.15)
             # self.triggerPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
             self.triggerPlot.getAxis('left').setTextPen('w')
@@ -163,8 +163,8 @@ class Plotter:
         global staticTrigger
         data = read_csv('data_show.csv')
         time = Series.tolist(data['time [ms]'])
-        rawSignal = Series.tolist(data['amplitude [mV] - raw'])
-        filterSignal = Series.tolist(data['amplitude [mV] - filtered'])
+        rawSignal = Series.tolist(data['amplitude - raw'])
+        filterSignal = Series.tolist(data['amplitude - filtered'])
         triggerSignal = Series.tolist(data['trigger'])
 
         # Trigger to show the static plot
@@ -205,7 +205,7 @@ class EmgThread(threading.Thread):
         self.calValues = 0
         self.serialValues = 0
         self.winSize = winSize
-        self.sampFreq = 873
+        self.sampFreq = 1536
         self.time = np.array([0])
         self.packets = np.array([])
         self.rawValues = np.array([])
@@ -214,9 +214,9 @@ class EmgThread(threading.Thread):
         self.initFilter = signal.lfilter_zi(self.b, self.a)
         self.serialPort = port
         self.fieldnames = [
-            'time [ms]',
-            'amplitude [mV] - raw',
-            'amplitude [mV] - filtered',
+            'time',
+            'amplitude - raw',
+            'amplitude - filtered',
             'trigger'
         ]
         with open('data_all.csv', 'w') as self.csv_file:
@@ -264,9 +264,11 @@ class EmgThread(threading.Thread):
             self.value = line.decode("utf-8").partition("\r")[0]
             if self.value != '' and self.value != '\n' and len(self.value) <= 3:
                 self.serialValues = float(self.value)
-                self.calValues = 0.125 * self.serialValues / 1023
+                # self.calValues = 0.125 * self.serialValues / 1023
+                self.calValues = self.serialValues
                 self.rawValues = np.append(self.rawValues, self.calValues)
-                self.calValues = self.rawValues - offsetMean
+                # self.calValues = self.rawValues - offsetMean
+                self.calValues = self.rawValues
 
     def filtering(self):
         """
@@ -309,9 +311,9 @@ class EmgThread(threading.Thread):
             with open('data_all.csv', 'a') as self.csv_file:
                 self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=self.fieldnames)
                 info = {
-                    'time [ms]': self.time[-1],
-                    'amplitude [mV] - raw': self.calValues[-1],
-                    'amplitude [mV] - filtered': filtered[-1],
+                    'time': self.time[-1],
+                    'amplitude - raw': self.calValues[-1],
+                    'amplitude [- filtered': filtered[-1],
                     'trigger': self.triggerValues[-1]
                 }
                 self.csv_writer.writerow(info)
@@ -319,9 +321,9 @@ class EmgThread(threading.Thread):
             with open('data_show.csv', 'a') as self.csv_file:
                 self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=self.fieldnames)
                 info = {
-                    'time [ms]': self.time[-1],
-                    'amplitude [mV] - raw': self.calValues[-1],
-                    'amplitude [mV] - filtered': filtered[-1],
+                    'time': self.time[-1],
+                    'amplitude - raw': self.calValues[-1],
+                    'amplitude - filtered': filtered[-1],
                     'trigger': self.triggerValues[-1]
                 }
                 self.csv_writer.writerow(info)
@@ -335,7 +337,8 @@ class EmgThread(threading.Thread):
         while np.size(self.rawValues) < self.winSize:
             if self.serialPort.inWaiting() > 0:
                 EmgThread.readsignal(self)
-            self.calValues = 0.125 * self.serialValues / 1023
+            # self.calValues = 0.125 * self.serialValues / 1023
+            self.calValues = self.serialValues
             self.rawValues = np.append(self.rawValues, self.calValues)
         while True:
             try:

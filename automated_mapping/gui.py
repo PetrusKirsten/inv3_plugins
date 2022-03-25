@@ -2,14 +2,20 @@ import wx  # pandas only works with wxPython 4.0.7
 import vtk
 import sys
 import serial
-from . import emg
 import numpy as np
 from serial import SerialException
+
+from . import emg
+from . import spiralTMS
+
 from pubsub import pub as Publisher
+<<<<<<< Updated upstream
 from vtkmodules.wx.wxVTKRenderWindowInteractor import wxVTKRenderWindowInteractor
 
 from . import spiralTMS
 
+=======
+>>>>>>> Stashed changes
 import invesalius.project as prj
 import invesalius.constants as const
 import invesalius.data.vtk_utils as vtku
@@ -361,6 +367,7 @@ class MotorMapGui(wx.Dialog):
             self.SetProgress(index / len(self.x_marker))
         self.collect_points.SetValue(str(len(self.x_marker)))
         self.interactor.Render()
+<<<<<<< Updated upstream
         self.doneButton.Enable(True)
         self.SetProgress(1)
 
@@ -373,7 +380,10 @@ class MotorMapGui(wx.Dialog):
         #     Publisher.sendMessage('Create marker', coord=img_coord, colour=(1, 1, 0))
         self.SetProgress(0)
         self.sendIndex = 0
+=======
+>>>>>>> Stashed changes
         self.sendButton.Enable(True)
+        self.SetProgress(1)
 
     def OnSend(self, evt):
         """
