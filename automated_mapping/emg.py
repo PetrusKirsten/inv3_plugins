@@ -118,7 +118,7 @@ class Plotter:
         # self.emgPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
         self.emgPlot.getAxis('left').setTextPen('w')
         self.emgPlot.getAxis('bottom').setTextPen('w')
-        self.emgPlot.setYRange(-0.01, 0.01)
+        self.emgPlot.setYRange(200, 400)
         if self.rawSignal:
             self.rawPen = pg.mkPen(color='white', width=0.5)
             self.rawCurve = self.emgPlot.plot(pen=self.rawPen)
@@ -133,7 +133,7 @@ class Plotter:
         self.staticPlot.showGrid(x=True, y=True, alpha=0.15)
         self.staticPlot.getAxis('left').setTextPen('w')
         self.staticPlot.getAxis('bottom').setTextPen('w')
-        self.staticPlot.setYRange(-0.01, 0.01)
+        self.emgPlot.setYRange(200, 400)
         self.staticPen = pg.mkPen(color=(72, 201, 176), width=2.5)
         self.staticCurve = self.staticPlot.plot(pen=self.staticPen)
 
@@ -162,7 +162,7 @@ class Plotter:
         """
         global staticTrigger
         data = read_csv('data_show.csv')
-        time = Series.tolist(data['time [ms]'])
+        time = Series.tolist(data['time'])
         rawSignal = Series.tolist(data['amplitude - raw'])
         filterSignal = Series.tolist(data['amplitude - filtered'])
         triggerSignal = Series.tolist(data['trigger'])
@@ -313,7 +313,7 @@ class EmgThread(threading.Thread):
                 info = {
                     'time': self.time[-1],
                     'amplitude - raw': self.calValues[-1],
-                    'amplitude [- filtered': filtered[-1],
+                    'amplitude - filtered': filtered[-1],
                     'trigger': self.triggerValues[-1]
                 }
                 self.csv_writer.writerow(info)

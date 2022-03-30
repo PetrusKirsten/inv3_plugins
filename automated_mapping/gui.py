@@ -1,4 +1,3 @@
-import scipy.ndimage
 import wx  # pandas only works with wxPython 4.0.7
 import vtk
 import sys
@@ -364,7 +363,8 @@ class MotorMapGui(wx.Dialog):
             emg.Plotter(
                 savePlot=self.savePlot,
                 saveLocation=self.location,
-                showTrigger=True)
+                showTrigger=True,
+                rawSignal=True)
             serialPort.close()
         except SerialException:
             print('Unable to access this serial port')
