@@ -210,8 +210,8 @@ class EmgThread(threading.Thread):
         self.packets = np.array([])
         self.rawValues = np.array([])
         self.triggerValues = np.zeros(self.winSize)
-        self.b, self.a = signal.butter(3, 0.03)
-        self.initFilter = signal.lfilter_zi(self.b, self.a)
+        self.b, self.a = signal.butter(3, 0.1)
+        # self.initFilter = signal.lfilter_zi(self.b, self.a)
         self.serialPort = port
         self.fieldnames = [
             'time',
@@ -276,16 +276,18 @@ class EmgThread(threading.Thread):
 
         Returns: an array with filtered values
         """
-        firstFilter, _ = signal.lfilter(
-            self.b, self.a,
-            self.calValues,
-            zi=self.initFilter * self.calValues[0]
-        )
-        plotFilter, _ = signal.lfilter(
-            self.b, self.a,
-            firstFilter,
-            zi=self.initFilter * firstFilter[0]
-        )
+        # firstFilter, _ = signal.lfilter(
+        #     self.b, self.a,
+        #     self.calValues,
+        #     zi=self.initFilter * self.calValues[0]
+        # )
+        # plotFilter, _ = signal.lfilter(
+        #     self.b, self.a,
+        #     firstFilter,
+        #     zi=self.initFilter * firstFilter[0]
+        # )
+
+        plotFilter = signal.filtfilt(self.b, self.a, self.calValues)
 
         return plotFilter
 
