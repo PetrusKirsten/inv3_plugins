@@ -76,17 +76,17 @@ def save_static(x, y, saveLocation):
 class Plotter:
     def __init__(
             self,
-            winSize=500,
+            winSize=2000,
             savePlot=False,
             saveLocation=None,
             rawSignal=False,
             showTrigger=False):
         """
-        Read estimulation data in csv and plot in quasi-real time
+        Read stimulation data in csv and plot in quasi-real time
 
         Args:
             winSize: size of showing plot
-            savePlot: flag to save or not the last triggered estimulation
+            savePlot: flag to save or not the last triggered stimulation
             saveLocation: local path to save the plot
             rawSignal: flag to show the raw signal data
             showTrigger: flag to show the trigger plot
@@ -96,7 +96,7 @@ class Plotter:
         self.savePlot = savePlot
         self.saveLocation = saveLocation
         self.staticSize = 50
-        self.sampFreq = 1536
+        self.sampFreq = 256
         self.staticSignal = []
         self.showTrigger = showTrigger
         self.rawSignal = rawSignal
@@ -112,10 +112,10 @@ class Plotter:
 
         # Emg plot config
         self.emgPlot = self.win.addPlot(colspan=2, title='Electromyography')
-        self.emgPlot.setLabel(axis='left', text='Amplitude Signal')
-        self.emgPlot.setLabel(axis='bottom', text='Time')
+        self.emgPlot.setLabel(axis='left', text='Amplitude Signal [mV]')
+        self.emgPlot.setLabel(axis='bottom', text='Time [s]')
         self.emgPlot.showGrid(x=True, y=True, alpha=0.15)
-        # self.emgPlot.getAxis('bottom').setTickSpacing(0.2, 0.04)
+        self.emgPlot.getAxis('bottom').setTickSpacing(0.5, 0.1)
         self.emgPlot.getAxis('left').setTextPen('w')
         self.emgPlot.getAxis('bottom').setTextPen('w')
         self.emgPlot.setYRange(200, 400)
@@ -129,7 +129,7 @@ class Plotter:
         self.win.nextRow()
         self.staticPlot = self.win.addPlot(colspan=2, title='Last triggered EMG signal')
         self.staticPlot.setLabel(axis='left', text='Amplitude Signal')
-        self.staticPlot.setLabel(axis='bottom', text='Time')
+        self.staticPlot.setLabel(axis='bottom', text='Time [ms]')
         self.staticPlot.showGrid(x=True, y=True, alpha=0.15)
         self.staticPlot.getAxis('left').setTextPen('w')
         self.staticPlot.getAxis('bottom').setTextPen('w')
@@ -178,7 +178,7 @@ class Plotter:
 
         # Insert data to plot
         if len(self.staticSignal) == self.staticSize:
-            staticTime = np.arange(0, len(self.staticSignal)) / self.sampFreq
+            staticTime = np.arange(0, len(self.staticSignal)) * 1000 / self.sampFreq
             self.staticCurve.setData(staticTime, self.staticSignal)
             staticTrigger = False
         if self.rawSignal:
@@ -191,7 +191,7 @@ class Plotter:
 
 
 class EmgThread(threading.Thread):
-    def __init__(self, port, winSize=500):
+    def __init__(self, port, winSize=2000):
         """
         Read and store the emg signals to a .csv fil
 
@@ -205,7 +205,7 @@ class EmgThread(threading.Thread):
         self.calValues = 0
         self.serialValues = 0
         self.winSize = winSize
-        self.sampFreq = 1536
+        self.sampFreq = 256
         self.time = np.array([0])
         self.packets = np.array([])
         self.rawValues = np.array([])
@@ -264,11 +264,11 @@ class EmgThread(threading.Thread):
             self.value = line.decode("utf-8").partition("\r")[0]
             if self.value != '' and self.value != '\n' and len(self.value) <= 3:
                 self.serialValues = float(self.value)
-                # self.calValues = 0.125 * self.serialValues / 1023
-                self.calValues = self.serialValues
+                self.calValues = 3125 * self.serialValues / 1023
+                # self.calValues = self.serialValues
                 self.rawValues = np.append(self.rawValues, self.calValues)
-                # self.calValues = self.rawValues - offsetMean
-                self.calValues = self.rawValues
+                self.calValues = self.rawValues - offsetMean
+                # self.calValues = self.rawValues
 
     def filtering(self):
         """
@@ -276,23 +276,11 @@ class EmgThread(threading.Thread):
 
         Returns: an array with filtered values
         """
+        fNyq = 0.5 * self.sampFreq
+        self.b, self.a = signal.butter(5, 4/fNyq, 'lowpass')
+        filterValues = signal.filtfilt(self.b, self.a, self.calValues)
 
-        self.b, self.a = signal.butter(3, 0.05, 'lowpass')
-
-        # firstFilter, _ = signal.lfilter(
-        #     self.b, self.a,
-        #     self.calValues,
-        #     zi=self.initFilter * self.calValues[0]
-        # )
-        # plotFilter, _ = signal.lfilter(
-        #     self.b, self.a,
-        #     firstFilter,
-        #     zi=self.initFilter * firstFilter[0]
-        # )
-
-        plotFilter = signal.filtfilt(self.b, self.a, self.calValues)
-
-        return plotFilter
+        return filterValues
 
     def truncate(self):
         """
@@ -351,7 +339,7 @@ class EmgThread(threading.Thread):
                     EmgThread.calibsignal(self)
                     plotFilter = EmgThread.filtering(self)
                     EmgThread.trigger(self)
-                    self.time = np.append(self.time, self.time[-1] + 1)
+                    self.time = np.append(self.time, self.time[-1] + 1/self.sampFreq)
 
                     EmgThread.writer(self, filtered=plotFilter, truncate=False)
 
@@ -368,6 +356,13 @@ class EmgThread(threading.Thread):
 
 
 if __name__ == '__main__':
-    emg = EmgThread(port='COM4')
-    emg.start()
-    Plotter(showTrigger=True, savePlot=False)
+    serialPort = serial.Serial(
+        port='COM5',
+        baudrate=9600,
+        bytesize=8)
+    emgPlot = EmgThread(port=serialPort)
+    emgPlot.start()
+    Plotter(
+        savePlot=False,
+        showTrigger=True,
+        rawSignal=True)
