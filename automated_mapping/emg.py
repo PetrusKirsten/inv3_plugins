@@ -106,7 +106,7 @@ class Plotter:
         self.app = QtGui.QApplication([])
         self.win = pg.GraphicsWindow()
         self.win.resize(600, 800)
-        self.win.setWindowIcon(QtGui.QIcon('emg-icon.png'))
+        # self.win.setWindowIcon(QtGui.QIcon('emg-icon.png'))
         self.win.setWindowTitle('EMG')
         self.win.setBackground((18, 18, 18))
 
@@ -277,7 +277,7 @@ class EmgThread(threading.Thread):
         Returns: an array with filtered values
         """
         fNyq = 0.5 * self.sampFreq
-        self.b, self.a = signal.butter(5, 4/fNyq, 'lowpass')
+        self.b, self.a, _ = signal.butter(5, 4/fNyq, 'lowpass')
         filterValues = signal.filtfilt(self.b, self.a, self.calValues)
 
         return filterValues

@@ -291,7 +291,7 @@ class MotorMapGui(wx.Dialog):
         spiralTMS.info(data)
 
         print('Adding markers')
-        self.spiralICP()
+        self.spiral()
 
         self.collect_points.SetValue(str(len(self.x_marker)))
         self.interactor.Render()
@@ -417,6 +417,9 @@ class MotorMapGui(wx.Dialog):
         """
         Remove the actors from the scene
         """
+        # print(self.ren.GetActors())
+        # print(self.ren.VisibleActorCount())
+        print(self.ren.GetActors())
         self.ren.RemoveAllViewProps()
         self.point_coord = []
         self.icp_points = []
@@ -427,7 +430,7 @@ class MotorMapGui(wx.Dialog):
 
     def ICP(self, coord):
         """
-        Apply ICP transforms to fit the espiral points to the surface
+        Apply ICP transforms to fit the spiral points to the surface
 
         Args:
             coord: raw coordinates to apply ICP
@@ -439,17 +442,29 @@ class MotorMapGui(wx.Dialog):
         source = vtk.vtkPolyData()
         source.SetPoints(sourcePoints_vtk)
 
+        if float(self.x_ctrl.GetValue()) > 100.0:
+            transform = vtk.vtkTransform()
+            transform.Translate(
+                float(self.x_ctrl.GetValue()),
+                -float(self.y_ctrl.GetValue()),
+                float(self.z_ctrl.GetValue()))
+            transform.RotateY(35)
+            transform.Translate(
+                -float(self.x_ctrl.GetValue()),
+                float(self.y_ctrl.GetValue()),
+                -float(self.z_ctrl.GetValue()))
 
-        transform = vtk.vtkTransform()
-        transform.Translate(
-            float(self.x_ctrl.GetValue()),
-            -float(self.y_ctrl.GetValue()),
-            float(self.z_ctrl.GetValue()))
-        transform.RotateY(45)
-        transform.Translate(
-            -float(self.x_ctrl.GetValue()),
-            float(self.y_ctrl.GetValue()),
-            -float(self.z_ctrl.GetValue()))
+        if float(self.x_ctrl.GetValue()) <= 100.00:
+            transform = vtk.vtkTransform()
+            transform.Translate(
+                float(self.x_ctrl.GetValue()),
+                -float(self.y_ctrl.GetValue()),
+                float(self.z_ctrl.GetValue()))
+            transform.RotateY(-35)
+            transform.Translate(
+                -float(self.x_ctrl.GetValue()),
+                float(self.y_ctrl.GetValue()),
+                -float(self.z_ctrl.GetValue()))
 
         transform_filt = vtk.vtkTransformPolyDataFilter()
         transform_filt.SetTransform(transform)
@@ -478,40 +493,28 @@ class MotorMapGui(wx.Dialog):
 
         transformedSource = icpTransformFilter.GetOutput()
         p = [0, 0, 0]
-        # transformedSource.GetPoint(0, p)
         transformedSource.GetPoint(0, p)
+        # source_points.GetPoint(0, p)
         point = vtk.vtkSphereSource()
         point.SetCenter(p)
-        point.SetRadius(2)
-        point.SetPhiResolution(3)
-        point.SetThetaResolution(3)
+        point.SetRadius(1.5)
+        point.SetPhiResolution(10)
+        point.SetThetaResolution(10)
+
         mapper = vtk.vtkPolyDataMapper()
         mapper.SetInputConnection(point.GetOutputPort())
-        # mapper.SetInputConnection(source_points.GetOutput())
+
         actor = vtk.vtkActor()
         actor.SetMapper(mapper)
         actor.GetProperty().SetColor((0, 0, 1))
+
         self.ren.AddActor(actor)
         self.interactor.Render()
 
         p[1] = -p[1]
         self.icp_points.append(p)
 
-    def spiralICP(self):
-        # new_spiral = []
-        # for index in range(len(self.x_marker)):
-        #     current_coord = [float(self.x_marker[index]),
-        #                      -float(self.y_marker[index]),
-        #                      float(self.z_ctrl.GetValue())]
-        #
-        #     new_spiral.append(current_coord)
-        #
-        # print('\n PLANA: ', new_spiral, '\n')
-        #
-        # rotate_spiral = scipy.ndimage.rotate(new_spiral, 45)
-        #
-        # print(rotate_spiral)
-
+    def spiral(self):
         for index in range(len(self.x_marker)):
             current_coord = [float(self.x_marker[index]),
                              -float(self.y_marker[index]),
