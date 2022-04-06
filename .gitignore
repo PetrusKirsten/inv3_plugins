@@ -167,3 +167,4 @@ Sessionx.vim
 [._]*.un~
 
 # End of https://www.gitignore.io/api/vim,tags,python
+*.csv

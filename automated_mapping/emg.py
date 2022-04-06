@@ -98,6 +98,9 @@ class Plotter:
         self.staticSize = 50
         self.sampFreq = 256
         self.staticSignal = []
+        self.staticTime = []
+        self.textPeak = ''
+        self.peakSignal = 0
         self.showTrigger = showTrigger
         self.rawSignal = rawSignal
         self.winSize = winSize
@@ -169,17 +172,21 @@ class Plotter:
 
         # Trigger to show the static plot
         if len(self.staticSignal) == self.staticSize and staticTrigger is True:
-            staticTime = np.arange(0, len(self.staticSignal)) / self.sampFreq
+            self.staticTime = []
             if self.savePlot:
-                save_static(x=staticTime, y=self.staticSignal, saveLocation=self.saveLocation)
+                save_static(x=self.staticTime, y=self.staticSignal, saveLocation=self.saveLocation)
             self.staticSignal = []
         elif staticTrigger:
             self.staticSignal.append(filterSignal[-10])
+            self.staticTime.append(time[-10])
 
         # Insert data to plot
         if len(self.staticSignal) == self.staticSize:
-            staticTime = np.arange(0, len(self.staticSignal)) * 1000 / self.sampFreq
-            self.staticCurve.setData(staticTime, self.staticSignal)
+            self.staticCurve.setData(self.staticTime, self.staticSignal)
+            self.peakSignal = max(self.staticSignal)
+            self.textPeak = pg.TextItem(text=f'MEP peak: {self.peakSignal:.2f}')
+            self.textPeak.setParentItem(self.staticCurve)
+            self.textPeak.setPos(self.staticTime[-50], max(self.staticSignal))
             staticTrigger = False
         if self.rawSignal:
             self.rawCurve.setData(time[-self.winSize:], rawSignal[-self.winSize:])
@@ -277,7 +284,7 @@ class EmgThread(threading.Thread):
         Returns: an array with filtered values
         """
         fNyq = 0.5 * self.sampFreq
-        self.b, self.a, _ = signal.butter(5, 4/fNyq, 'lowpass')
+        self.b, self.a = signal.butter(5, 4 / fNyq, 'lowpass')
         filterValues = signal.filtfilt(self.b, self.a, self.calValues)
 
         return filterValues
@@ -357,7 +364,7 @@ class EmgThread(threading.Thread):
 
 if __name__ == '__main__':
     serialPort = serial.Serial(
-        port='COM5',
+        port='COM3',
         baudrate=9600,
         bytesize=8)
     emgPlot = EmgThread(port=serialPort)
