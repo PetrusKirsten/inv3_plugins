@@ -418,9 +418,6 @@ class MotorMapGui(wx.Dialog):
         """
         Remove the actors from the scene
         """
-        print(self.ren.GetActors())
-        print(self.ren.VisibleActorCount())
-
         self.ren.RemoveAllViewProps()
         self.point_coord = []
         self.icp_points = []
@@ -528,9 +525,12 @@ class MotorMapGui(wx.Dialog):
         """
         Update robot target to the next spiral coordinate
         """
+        if self.sendIndex > 0:
+            pastCoord = self.ActorCollection.GetItemAsObject(self.sendIndex - 1)
+            pastCoord.GetProperty().SetColor((1, 0, 0))
+        actualCoord = self.ActorCollection.GetItemAsObject(self.sendIndex)
+        actualCoord.GetProperty().SetColor((1, 1, 0))
 
-        print(self.ActorCollection.GetItemAsObject(self.sendIndex))
-        self.ActorCollection.GetItemAsObject(self.sendIndex).GetProperty().SetColor((1, 0, 0))
         self.interactor.Render()
         # target = dcr.image_to_tracker(
         #     navigation.Navigation().m_change,
