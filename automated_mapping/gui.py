@@ -87,6 +87,7 @@ class MotorMapGui(wx.Dialog):
         self.combo_surface_name = None
         self.collect_points = None
         self.m_icp = None
+        self.ActorCollection = vtk.vtkActorCollection()
 
         self.staticballs = []
         self.point_coord = []
@@ -417,9 +418,9 @@ class MotorMapGui(wx.Dialog):
         """
         Remove the actors from the scene
         """
-        # print(self.ren.GetActors())
-        # print(self.ren.VisibleActorCount())
         print(self.ren.GetActors())
+        print(self.ren.VisibleActorCount())
+
         self.ren.RemoveAllViewProps()
         self.point_coord = []
         self.icp_points = []
@@ -480,7 +481,7 @@ class MotorMapGui(wx.Dialog):
         icp.GetLandmarkTransform().SetModeToRigidBody()
         # icp.GetLandmarkTransform().SetModeToAffine()
         icp.DebugOn()
-        icp.SetMaximumNumberOfIterations(250)
+        icp.SetMaximumNumberOfIterations(100)
         icp.Modified()
         icp.Update()
 
@@ -509,6 +510,7 @@ class MotorMapGui(wx.Dialog):
         actor.GetProperty().SetColor((0, 0, 1))
 
         self.ren.AddActor(actor)
+        self.ActorCollection.AddItem(actor)
         self.interactor.Render()
 
         p[1] = -p[1]
@@ -526,15 +528,19 @@ class MotorMapGui(wx.Dialog):
         """
         Update robot target to the next spiral coordinate
         """
-        target = dcr.image_to_tracker(
-            navigation.Navigation().m_change,
-            self.icp_points[self.sendIndex],
-            icp.ICP())
 
-        Publisher.sendMessage('Update robot target',
-                              robot_tracker_flag=True,
-                              target_index=0,  # doesnt matter
-                              target=target.tolist())
+        print(self.ActorCollection.GetItemAsObject(self.sendIndex))
+        self.ActorCollection.GetItemAsObject(self.sendIndex).GetProperty().SetColor((1, 0, 0))
+        self.interactor.Render()
+        # target = dcr.image_to_tracker(
+        #     navigation.Navigation().m_change,
+        #     self.icp_points[self.sendIndex],
+        #     icp.ICP())
+
+        # Publisher.sendMessage('Update robot target',
+        #                       robot_tracker_flag=True,
+        #                       target_index=0,  # doesnt matter
+        #                       target=target.tolist())
         print(f'\n>> Sent #{self.sendIndex + 1} coordinate'
               f'\n>> Target: {self.icp_points[self.sendIndex]}')
 

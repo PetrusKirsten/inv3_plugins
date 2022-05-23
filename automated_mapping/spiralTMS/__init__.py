@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 
 
 def info(data):
-    print(f'\nRobotic coil trajectory info:\n\n'
+    print(f'Robotic coil trajectory info:\n\n'
           f'>> Maximium stimulation radius: {data[0]:.2f} mm\n'
           f'>> Distance between stimulated spots: {data[1]} mm\n'
           f'>> Delta: {data[2]} mm/rad\n'
