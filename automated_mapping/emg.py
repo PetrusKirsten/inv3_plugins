@@ -9,6 +9,10 @@ import numpy as np
 import keyboard as kb
 import pyqtgraph as pg
 from scipy import signal
+
+import locale
+locale.setlocale(locale.LC_ALL, 'en_GB')
+
 from pandas import Series
 from pandas import read_csv
 from matplotlib import pyplot as plt

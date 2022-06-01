@@ -1,0 +1,17 @@
+diff a/automated_mapping/gui.py b/automated_mapping/gui.py	(rejected hunks)
+@@ -87,6 +87,7 @@ class MotorMapGui(wx.Dialog):
+         self.combo_surface_name = None
+         self.collect_points = None
+         self.m_icp = None
++        self.coil_at_target = False
+ 
+         self.staticballs = []
+         self.point_coord = []
+@@ -509,6 +523,7 @@ class MotorMapGui(wx.Dialog):
+         actor.GetProperty().SetColor((0, 0, 1))
+ 
+         self.ren.AddActor(actor)
++
+         self.interactor.Render()
+ 
+         p[1] = -p[1]

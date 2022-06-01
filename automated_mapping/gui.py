@@ -95,11 +95,19 @@ class MotorMapGui(wx.Dialog):
         self.obj_orients = np.full([5, 3], np.nan)
         self.obj_fiducials = np.full([5, 3], np.nan)
 
-        self.interactor = wxVTKRenderWindowInteractor(self, -1, size=self.GetSize())
+        self.interactor = wxVTKRenderWindowInteractor(self, -1, size=[800, 600])
         self.ren = vtk.vtkRenderer()
         self.proj = prj.Project()
 
         self.init_gui()
+
+        self.__bind_events()
+
+    def __bind_events(self):
+        Publisher.subscribe(self.CoilAtTarget, 'Coil at target')
+
+    def CoilAtTarget(self, state):
+        self.coil_at_target = state
 
     def EmgVisGui(self):
         self.combobox_plot.Add(
@@ -153,7 +161,7 @@ class MotorMapGui(wx.Dialog):
             wx.EXPAND | wx.BOTTOM, 10)
         self.plot_sizer.Add(
             self.right_emgSizer, 2,
-            wx.EXPAND | wx.ALIGN_RIGHT | wx.BOTTOM, 10)
+            wx.EXPAND | wx.BOTTOM, 10)
 
         self.Bind(wx.EVT_COMBOBOX, self.OnSelCom)
         self.Bind(wx.EVT_CHECKBOX, self.OnSavePlot)
@@ -170,15 +178,14 @@ class MotorMapGui(wx.Dialog):
         self.radius_ctrl = wx.TextCtrl(self, -1, '40', size=ctrl_size)
         self.pointsdist_ctrl = wx.TextCtrl(self, -1, '20', size=ctrl_size)
         self.txt_sizer.AddMany(
-            ((self.x_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.x_ctrl, 0),
-             (self.y_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.y_ctrl, 0),
-             (self.z_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.z_ctrl, 0),
-             (self.ecc_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.ecc_ctrl, 0),
-             (self.radius_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.radius_ctrl, 0),
-             (self.pointsdist_sta, 0, wx.ALIGN_CENTER_VERTICAL), (self.pointsdist_ctrl, 0)))
+            ((self.x_sta, 0), (self.x_ctrl, 0),
+             (self.y_sta, 0), (self.y_ctrl, 0),
+             (self.z_sta, 0), (self.z_ctrl, 0),
+             (self.ecc_sta, 0), (self.ecc_ctrl, 0),
+             (self.radius_sta, 0), (self.radius_ctrl, 0),
+             (self.pointsdist_sta, 0), (self.pointsdist_ctrl, 0)))
         self.left_trajSizer.Add(
-            self.txt_sizer, 0,
-            wx.ALIGN_CENTER_VERTICAL)
+            self.txt_sizer, 0)
 
         self.generateButton = wx.Button(
             self, 4,
@@ -186,16 +193,14 @@ class MotorMapGui(wx.Dialog):
             size=(175, -1))
         self.generateButton.Enable(False)
         self.left_trajSizer.Add(
-            self.generateButton, 0,
-            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
+            self.generateButton, 0, wx.TOP, 5)
 
         self.sendButton = wx.Button(
             self, 5,
             'Send to robot')
         self.sendButton.Enable(False)
         self.left_trajSizer.Add(
-            self.sendButton, 0,
-            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP, 5)
+            self.sendButton, 0, wx.TOP, 5)
 
         combo_surface_name = wx.ComboBox(self, -1, size=(150, -1),
                                          style=wx.CB_DROPDOWN | wx.CB_READONLY)
@@ -208,13 +213,12 @@ class MotorMapGui(wx.Dialog):
 
         self.surf_sizer.Add(
             self.txt_surface, 0,
-            wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_CENTER_HORIZONTAL | wx.RIGHT, 5)
+            wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
         self.surf_sizer.Add(
             combo_surface_name, 0,
-            wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_CENTER_HORIZONTAL | wx.LEFT, 5)
+            wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 5)
         self.right_trajSizer.Add(
-            self.surf_sizer, 0,
-            wx.ALIGN_CENTER_HORIZONTAL | wx.TOP | wx.BOTTOM, 5)
+            self.surf_sizer, 0, wx.TOP | wx.BOTTOM, 5)
 
         self.interactor.Enable(1)
         self.interactor.GetRenderWindow().AddRenderer(self.ren)
@@ -240,7 +244,7 @@ class MotorMapGui(wx.Dialog):
             self.top_sizer, 0)
         self.mainTraj_sizer.Add(
             self.bottom_sizer, 0,
-            wx.EXPAND | wx.ALIGN_CENTER_HORIZONTAL)
+            wx.EXPAND)
 
         self.Bind(wx.EVT_BUTTON, self.OnGen2d, id=4)
         self.Bind(wx.EVT_BUTTON, self.OnSend, id=5)
@@ -307,11 +311,15 @@ class MotorMapGui(wx.Dialog):
         self.SendTarget()
 
         self.SetProgress((self.sendIndex + 1) / (len(self.icp_points)))
-
         self.sendIndex += 1
         if self.sendIndex >= len(self.icp_points):
             print('All coordinates sent')
             self.sendButton.Enable(False)
+
+        if self.coil_at_target:
+            print("Send trigger")
+        else:
+            print("Coil not at target")
 
     def OnSelCom(self, evt):
         """
@@ -527,11 +535,20 @@ class MotorMapGui(wx.Dialog):
         """
         if self.sendIndex > 0:
             pastCoord = self.ActorCollection.GetItemAsObject(self.sendIndex - 1)
-            pastCoord.GetProperty().SetColor((1, 0, 0))
+            pastCoord.GetProperty().SetColor((0, 1, 0))
         actualCoord = self.ActorCollection.GetItemAsObject(self.sendIndex)
         actualCoord.GetProperty().SetColor((1, 1, 0))
-
         self.interactor.Render()
+
+        coord = (self.icp_points[self.sendIndex][0],
+                 self.icp_points[self.sendIndex][1],
+                 self.icp_points[self.sendIndex][2],
+                 0, 1, 1)
+
+        Publisher.sendMessage('Create marker', coord=coord, colour=[0, 0, 1])
+        Publisher.sendMessage('Define target')
+        Publisher.sendMessage('Target navigation mode', target_mode=True)
+
         # target = dcr.image_to_tracker(
         #     navigation.Navigation().m_change,
         #     self.icp_points[self.sendIndex],
@@ -541,6 +558,7 @@ class MotorMapGui(wx.Dialog):
         #                       robot_tracker_flag=True,
         #                       target_index=0,  # doesnt matter
         #                       target=target.tolist())
+
         print(f'\n>> Sent #{self.sendIndex + 1} coordinate'
               f'\n>> Target: {self.icp_points[self.sendIndex]}')
 
