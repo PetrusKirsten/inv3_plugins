@@ -168,3 +168,5 @@ Sessionx.vim
 
 # End of https://www.gitignore.io/api/vim,tags,python
 *.csv
+automated_mapping/data_all.csv
+automated_mapping/data_show.csv
