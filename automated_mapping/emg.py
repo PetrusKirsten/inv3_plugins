@@ -271,7 +271,7 @@ class EmgThread(threading.Thread):
         self.serialPort = port
         self.winSize = winSize
 
-        self.coil_at_target = False
+        self.coilAtTarger = False
         self.triggerFlag = True
         self.sampFreq = 256
         self.value = ()
@@ -302,7 +302,7 @@ class EmgThread(threading.Thread):
         Publisher.subscribe(self.CoilAtTarget, 'Coil at target')
 
     def CoilAtTarget(self, state):
-        self.coil_at_target = state
+        self.coilAtTarger = state
 
     def trigger(self):
         """
@@ -416,11 +416,11 @@ class EmgThread(threading.Thread):
                     EmgThread.calibsignal(self)
                     plotFilter = EmgThread.filtering(self)
 
-                    if self.coil_at_target and self.triggerFlag:
+                    if self.coilAtTarger and self.triggerFlag:
                         print('Send trigger')
                         EmgThread.trigger(self)
                         self.triggerFlag = False
-                    elif self.coil_at_target:
+                    elif self.coilAtTarger:
                         self.triggerValues = np.append(self.triggerValues, 0.)
                     else:
                         self.triggerValues = np.append(self.triggerValues, 0.)
