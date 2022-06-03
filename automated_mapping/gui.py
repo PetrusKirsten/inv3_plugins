@@ -87,27 +87,22 @@ class MotorMapGui(wx.Dialog):
         self.combo_surface_name = None
         self.collect_points = None
         self.m_icp = None
-        self.ActorCollection = vtk.vtkActorCollection()
 
+        self.ActorCollection = vtk.vtkActorCollection()
         self.staticballs = []
         self.point_coord = []
         self.icp_points = []
         self.obj_orients = np.full([5, 3], np.nan)
         self.obj_fiducials = np.full([5, 3], np.nan)
 
-        self.interactor = wxVTKRenderWindowInteractor(self, -1, size=[800, 600])
+        self.coil_at_target = False
+
+        self.interactor = wxVTKRenderWindowInteractor(self, -1)
+        # self.interactor = wxVTKRenderWindowInteractor(self, -1, size=[800, 600])
         self.ren = vtk.vtkRenderer()
         self.proj = prj.Project()
 
         self.init_gui()
-
-        self.__bind_events()
-
-    def __bind_events(self):
-        Publisher.subscribe(self.CoilAtTarget, 'Coil at target')
-
-    def CoilAtTarget(self, state):
-        self.coil_at_target = state
 
     def EmgVisGui(self):
         self.combobox_plot.Add(
@@ -300,7 +295,7 @@ class MotorMapGui(wx.Dialog):
 
         self.collect_points.SetValue(str(len(self.x_marker)))
         self.interactor.Render()
-        self.sendButton.Enable(True)
+        self.sendIndex = 0
 
         self.SetProgress(1)
 
@@ -312,14 +307,10 @@ class MotorMapGui(wx.Dialog):
 
         self.SetProgress((self.sendIndex + 1) / (len(self.icp_points)))
         self.sendIndex += 1
+
         if self.sendIndex >= len(self.icp_points):
             print('All coordinates sent')
             self.sendButton.Enable(False)
-
-        if self.coil_at_target:
-            print("Send trigger")
-        else:
-            print("Coil not at target")
 
     def OnSelCom(self, evt):
         """
@@ -367,6 +358,9 @@ class MotorMapGui(wx.Dialog):
                 port=self.ports[self.portIndex],
                 baudrate=9600,
                 bytesize=8)
+
+            self.sendButton.Enable(True)
+
             emgPlot = emg.EmgThread(port=serialPort)
             emgPlot.start()
             emg.Plotter(
@@ -374,7 +368,9 @@ class MotorMapGui(wx.Dialog):
                 saveLocation=self.location,
                 showTrigger=True,
                 rawSignal=True)
+
             serialPort.close()
+
         except SerialException:
             print('Unable to access this serial port')
         except TypeError:
@@ -536,8 +532,10 @@ class MotorMapGui(wx.Dialog):
         if self.sendIndex > 0:
             pastCoord = self.ActorCollection.GetItemAsObject(self.sendIndex - 1)
             pastCoord.GetProperty().SetColor((0, 1, 0))
+
         actualCoord = self.ActorCollection.GetItemAsObject(self.sendIndex)
         actualCoord.GetProperty().SetColor((1, 1, 0))
+
         self.interactor.Render()
 
         coord = (self.icp_points[self.sendIndex][0],

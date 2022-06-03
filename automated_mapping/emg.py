@@ -11,12 +11,15 @@ import pyqtgraph as pg
 from scipy import signal
 
 import locale
+
 locale.setlocale(locale.LC_ALL, 'en_GB')
 
 from pandas import Series
 from pandas import read_csv
 from matplotlib import pyplot as plt
 from pyqtgraph.Qt import QtGui, QtCore
+
+from pubsub import pub as Publisher
 
 global staticTrigger
 
@@ -250,7 +253,6 @@ class Plotter:
 
             staticTrigger = False
 
-
         self.curveConfig()
 
         self.app.processEvents()
@@ -269,7 +271,8 @@ class EmgThread(threading.Thread):
         self.serialPort = port
         self.winSize = winSize
 
-        self.tmsFlag = False
+        self.coil_at_target = False
+        self.triggerFlag = True
         self.sampFreq = 256
         self.value = ()
         self.calValues = 0
@@ -293,21 +296,23 @@ class EmgThread(threading.Thread):
             self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=self.fieldnames)
             self.csv_writer.writeheader()
 
+        self.__bind_events()
+
+    def __bind_events(self):
+        Publisher.subscribe(self.CoilAtTarget, 'Coil at target')
+
+    def CoilAtTarget(self, state):
+        self.coil_at_target = state
+
     def trigger(self):
         """
-        Send a square signal to arduino to locate estimulations
+        Send a square signal to arduino to locate stimulations
         """
         global staticTrigger
 
-        if kb.is_pressed('e'):
-            if self.tmsFlag is False:
-                staticTrigger = True
-                self.tmsFlag = True
-                self.serialPort.write(b'H')
-                self.triggerValues = np.append(self.triggerValues, 1.)
-        else:
-            self.triggerValues = np.append(self.triggerValues, 0.)
-            self.tmsFlag = False
+        staticTrigger = True
+        self.serialPort.write(b'H')
+        self.triggerValues = np.append(self.triggerValues, 1.)
 
     def readsignal(self):
         """
@@ -410,15 +415,24 @@ class EmgThread(threading.Thread):
                 if self.serialPort.inWaiting() > 0:
                     EmgThread.calibsignal(self)
                     plotFilter = EmgThread.filtering(self)
-                    EmgThread.trigger(self)
 
-                    self.time = np.append(self.time, self.time[-1] + 1/self.sampFreq)
+                    if self.coil_at_target and self.triggerFlag:
+                        print('Send trigger')
+                        EmgThread.trigger(self)
+                        self.triggerFlag = False
+                    elif self.coil_at_target:
+                        self.triggerValues = np.append(self.triggerValues, 0.)
+                    else:
+                        self.triggerValues = np.append(self.triggerValues, 0.)
+                        self.triggerFlag = True
+
+                    self.time = np.append(self.time, self.time[-1] + 1 / self.sampFreq)
 
                     EmgThread.writer(self, filtered=plotFilter, truncate=False)
 
                     dataSize = os.path.getsize("data_show.csv")
 
-                    if dataSize > 10000000:
+                    if dataSize > 10**7:
                         EmgThread.truncate(self)
 
                     EmgThread.writer(self, filtered=plotFilter, truncate=True)
