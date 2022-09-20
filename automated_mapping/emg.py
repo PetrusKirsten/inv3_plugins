@@ -87,7 +87,7 @@ class Plotter:
             winSize=2000,
             savePlot=False,
             saveLocation=None,
-            rawSignal=False,
+            rawSignal=True,
             showTrigger=False):
         """
         Read stimulation data in csv and plot in quasi-real time
@@ -212,8 +212,8 @@ class Plotter:
         self.textPeak.setPos(self.staticTime[-50], self.peakSignal)
 
     def curveConfig(self):
-        if self.rawSignal:
-            self.rawCurve.setData(self.time[-self.winSize:], self.rawSignal[-self.winSize:])
+        # if self.rawSignal:
+        #     self.rawCurve.setData(self.time[-self.winSize:], self.rawSignal[-self.winSize:])
 
         self.emgCurve.setData(self.time[-self.winSize:], self.filterSignal[-self.winSize:])
 
@@ -273,7 +273,7 @@ class EmgThread(threading.Thread):
 
         self.coilAtTarger = False
         self.triggerFlag = True
-        self.sampFreq = 256
+        self.sampFreq = 256*6
         self.value = ()
         self.calValues = 0
         self.serialValues = 0
@@ -351,7 +351,7 @@ class EmgThread(threading.Thread):
         """
         fNyq = 0.5 * self.sampFreq
 
-        b, a = signal.butter(5, 4 / fNyq, 'lowpass')
+        b, a = signal.butter(5, 16/self.sampFreq, 'highpass')
         filterValues = signal.filtfilt(b, a, self.calValues)
 
         return filterValues
@@ -457,4 +457,4 @@ if __name__ == '__main__':
     Plotter(
         savePlot=False,
         showTrigger=True,
-        rawSignal=True)
+        rawSignal=False)
